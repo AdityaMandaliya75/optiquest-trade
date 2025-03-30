@@ -122,8 +122,9 @@ export const processStockUpdates = (stocks: Stock[]): Notification[] => {
   const triggeredAlerts = checkAlertsForTrigger(stocks);
   const newNotifications: Notification[] = [];
   
-  triggeredAlerts.forEach(alert => {
-    const stock = stocks.find(s => s.symbol === alert.symbol);
+  triggeredAlerts.forEach(alertData => {
+    const { alert, symbol } = alertData;
+    const stock = stocks.find(s => s.symbol === symbol);
     if (stock) {
       const notification = createNotificationFromAlert(alert, stock);
       newNotifications.push(notification);

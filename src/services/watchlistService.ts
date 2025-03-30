@@ -197,8 +197,9 @@ export const removeAlert = (
 };
 
 // Check if any alerts need to be triggered based on current stock data
-export const checkAlertsForTrigger = (stocks: Stock[]): WatchlistAlert[] => {
-  const triggeredAlerts: WatchlistAlert[] = [];
+// Modified to return both alert and symbol
+export const checkAlertsForTrigger = (stocks: Stock[]): { alert: WatchlistAlert; symbol: string }[] => {
+  const triggeredAlerts: { alert: WatchlistAlert; symbol: string }[] = [];
   
   watchlists.forEach(watchlist => {
     watchlist.stocks.forEach(watchlistStock => {
@@ -222,7 +223,8 @@ export const checkAlertsForTrigger = (stocks: Stock[]): WatchlistAlert[] => {
             if (shouldTrigger) {
               // Mark the alert as triggered
               alert.triggered = true;
-              triggeredAlerts.push(alert);
+              // Return both alert and symbol
+              triggeredAlerts.push({ alert, symbol: watchlistStock.symbol });
             }
           }
         });
