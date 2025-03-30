@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Trading platform specific colors
+				profit: '#00c853',
+				loss: '#ff3d00',
+				neutral: '#78909c',
+				chart: {
+					background: '#1a237e',
+					gridLines: '#2f3652',
+					text: '#b0bec5',
 				}
 			},
 			borderRadius: {
@@ -84,11 +94,21 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-price': {
+					'0%, 100%': { backgroundColor: 'transparent' },
+					'50%': { backgroundColor: 'rgba(0, 200, 83, 0.2)' }
+				},
+				'pulse-price-down': {
+					'0%, 100%': { backgroundColor: 'transparent' },
+					'50%': { backgroundColor: 'rgba(255, 61, 0, 0.2)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-price-up': 'pulse-price 0.5s ease-in-out',
+				'pulse-price-down': 'pulse-price-down 0.5s ease-in-out'
 			}
 		}
 	},
