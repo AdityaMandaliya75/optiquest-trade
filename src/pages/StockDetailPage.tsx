@@ -2,7 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Stock, ChartData, OptionChain } from '@/types/market';
-import { getStockBySymbol, getChartData, getOptionChain, startRealTimeUpdates } from '@/services/marketService';
+import { 
+  getStockBySymbol, 
+  getChartData, 
+  getOptionChain, 
+  subscribeToChart,
+  subscribeToOptionChain
+} from '@/services/realTimeMarketService';
 import { placeOrder } from '@/services/portfolioService';
 import Layout from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,14 +33,18 @@ const StockDetailPage: React.FC = () => {
   const { toast } = useToast();
   
   useEffect(() => {
+    if (!symbol) return;
+    
+    let unsubscribeChart: (() => void) | undefined;
+    let unsubscribeOptionChain: (() => void) | undefined;
+    
     const fetchData = async () => {
-      if (!symbol) return;
-      
       try {
         const stockData = await getStockBySymbol(symbol);
         if (stockData) {
           setStock(stockData);
           
+          // Get initial data
           const [chartData, optionChainData] = await Promise.all([
             getChartData(symbol),
             getOptionChain(symbol)
@@ -42,22 +52,21 @@ const StockDetailPage: React.FC = () => {
           
           setChartData(chartData);
           setOptionChain(optionChainData || null);
+          
+          // Subscribe to real-time chart updates
+          unsubscribeChart = subscribeToChart(symbol, (_, updatedChartData) => {
+            setChartData(updatedChartData);
+          });
+          
+          // Subscribe to real-time option chain updates
+          if (optionChainData) {
+            unsubscribeOptionChain = subscribeToOptionChain(symbol, (updatedOptionChain) => {
+              setOptionChain(updatedOptionChain);
+            });
+          }
         }
         
         setLoading(false);
-        
-        // Start real-time updates
-        const cleanup = startRealTimeUpdates(
-          (updatedStocks) => {
-            const updatedStock = updatedStocks.find(s => s.symbol === symbol);
-            if (updatedStock) {
-              setStock(updatedStock);
-            }
-          },
-          () => {}
-        );
-        
-        return cleanup;
       } catch (error) {
         console.error('Error fetching stock details:', error);
         setLoading(false);
@@ -70,6 +79,11 @@ const StockDetailPage: React.FC = () => {
     };
     
     fetchData();
+    
+    return () => {
+      if (unsubscribeChart) unsubscribeChart();
+      if (unsubscribeOptionChain) unsubscribeOptionChain();
+    };
   }, [symbol, toast]);
   
   const handleSelectOption = (type: 'call' | 'put', strikePrice: number) => {

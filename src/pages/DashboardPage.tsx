@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Stock, MarketIndex, ChartData } from '@/types/market';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getStocks, getIndices, getChartData, startRealTimeUpdates } from '@/services/marketService';
+import { getChartData, subscribeToStocks, subscribeToIndices } from '@/services/realTimeMarketService';
 import Layout from '@/components/layout/Layout';
 import IndexCard from '@/components/dashboard/IndexCard';
 import StockTable from '@/components/dashboard/StockTable';
@@ -18,24 +18,24 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [stocksData, indicesData, chartData] = await Promise.all([
-          getStocks(),
-          getIndices(),
-          getChartData('NIFTY50')
-        ]);
-        
-        setStocks(stocksData);
-        setIndices(indicesData);
+        // Get initial chart data
+        const chartData = await getChartData('NIFTY50');
         setChartData(chartData);
         setLoading(false);
         
-        // Start real-time updates
-        const cleanup = startRealTimeUpdates(
-          (updatedStocks) => setStocks(updatedStocks),
-          (updatedIndices) => setIndices(updatedIndices)
-        );
+        // Subscribe to real-time updates
+        const unsubscribeStocks = subscribeToStocks((updatedStocks) => {
+          setStocks(updatedStocks);
+        });
         
-        return cleanup;
+        const unsubscribeIndices = subscribeToIndices((updatedIndices) => {
+          setIndices(updatedIndices);
+        });
+        
+        return () => {
+          unsubscribeStocks();
+          unsubscribeIndices();
+        };
       } catch (error) {
         console.error('Error fetching data:', error);
         setLoading(false);
