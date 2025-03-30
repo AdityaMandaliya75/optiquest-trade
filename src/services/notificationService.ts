@@ -1,4 +1,3 @@
-
 import { Notification, WatchlistAlert, Stock, StockNews } from '@/types/market';
 import { checkAlertsForTrigger } from './watchlistService';
 
@@ -124,7 +123,7 @@ export const processStockUpdates = (stocks: Stock[]): Notification[] => {
   const newNotifications: Notification[] = [];
   
   triggeredAlerts.forEach(alert => {
-    const stock = stocks.find(s => s.symbol === alert.relatedSymbol);
+    const stock = stocks.find(s => s.symbol === alert.symbol);
     if (stock) {
       const notification = createNotificationFromAlert(alert, stock);
       newNotifications.push(notification);
