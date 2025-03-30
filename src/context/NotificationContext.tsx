@@ -93,16 +93,16 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
+  const contextValue = {
+    notifications,
+    unreadCount,
+    markAsRead: handleMarkAsRead,
+    markAllRead: handleMarkAllRead,
+    deleteNotification: handleDeleteNotification,
+  };
+
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        markAsRead: handleMarkAsRead,
-        markAllRead: handleMarkAllRead,
-        deleteNotification: handleDeleteNotification,
-      }}
-    >
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );
