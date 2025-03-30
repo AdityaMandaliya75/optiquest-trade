@@ -25,7 +25,7 @@ const DashboardPage: React.FC = () => {
   const [indices, setIndices] = useState<MarketIndex[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const { data: portfolioSummary } = usePortfolioSummary();
+  const { data: portfolioSummary, isLoading: portfolioLoading } = usePortfolioSummary();
   
   useEffect(() => {
     const fetchData = async () => {
@@ -56,7 +56,7 @@ const DashboardPage: React.FC = () => {
   }, []);
   
   const renderContent = () => {
-    if (loading) {
+    if (loading || portfolioLoading) {
       return (
         <div className="flex items-center justify-center h-64">
           <p className="text-lg text-muted-foreground">Loading dashboard data...</p>

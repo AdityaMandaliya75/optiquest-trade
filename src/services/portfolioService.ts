@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { PortfolioHolding, Order, TradeHistory, PortfolioSummary } from '../types/market';
 import { mockPortfolioHoldings, mockOrders, mockTradeHistory, mockPortfolioSummary } from '../data/mockData';
 import { getStockBySymbol, getOptionChain } from './marketService';
@@ -100,6 +101,16 @@ export const getPortfolioSummary = async (): Promise<PortfolioSummary> => {
   };
   
   return portfolioSummary;
+};
+
+// Custom hook to get portfolio summary with React Query
+export const usePortfolioSummary = () => {
+  return useQuery({
+    queryKey: ['portfolioSummary'],
+    queryFn: getPortfolioSummary,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 20000, // Consider data stale after 20 seconds
+  });
 };
 
 // Place a new order
