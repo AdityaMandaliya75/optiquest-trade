@@ -178,12 +178,16 @@ export const subscribeToOptionChain = (
   callback: OptionChainCallback
 ): () => void => {
   let optionChain: OptionChain | undefined;
+  let stockPrice: number = 0;
   
   // Initialize with current data
   const initialize = async () => {
     optionChain = await getOptionChain(symbol);
+    const stock = await getStockBySymbol(symbol);
+    stockPrice = stock?.price || 0;
+    
     if (optionChain) {
-      callback({...optionChain});
+      callback({...optionChain, underlyingPrice: stockPrice});
     }
   };
   
@@ -191,6 +195,9 @@ export const subscribeToOptionChain = (
   
   // Update option chain every 15 seconds
   optionChainIntervals[symbol] = window.setInterval(async () => {
+    const stock = await getStockBySymbol(symbol);
+    stockPrice = stock?.price || 0;
+    
     if (optionChain) {
       // Update call options
       const calls = optionChain.calls.map(option => {
@@ -224,6 +231,7 @@ export const subscribeToOptionChain = (
       
       optionChain = {
         ...optionChain,
+        underlyingPrice: stockPrice,
         calls,
         puts
       };

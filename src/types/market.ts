@@ -28,6 +28,7 @@ export interface MarketIndex {
 
 export interface OptionChain {
   underlyingSymbol: string;
+  underlyingPrice?: number;
   expiryDate: string;
   calls: Option[];
   puts: Option[];
