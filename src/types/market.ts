@@ -109,3 +109,51 @@ export interface PortfolioSummary {
   totalPnL: number;
   totalPnLPercent: number;
 }
+
+// Watchlist Types
+export interface Watchlist {
+  id: string;
+  name: string;
+  stocks: WatchlistItem[];
+}
+
+export interface WatchlistItem {
+  symbol: string;
+  name: string;
+  addedAt: number;
+  alerts?: WatchlistAlert[];
+}
+
+export interface WatchlistAlert {
+  id: string;
+  type: 'price' | 'change' | 'volume' | 'news';
+  condition: 'above' | 'below' | 'percent_change' | 'news_mention';
+  value: number | string;
+  triggered: boolean;
+  createdAt: number;
+}
+
+// News Types
+export interface StockNews {
+  id: string;
+  headline: string;
+  summary: string;
+  url: string;
+  source: string;
+  publishedAt: number;
+  relatedSymbols: string[];
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  isImportant?: boolean;
+}
+
+// Notification Types
+export interface Notification {
+  id: string;
+  type: 'price_alert' | 'news_alert' | 'volume_spike' | 'system';
+  title: string;
+  message: string;
+  timestamp: number;
+  relatedSymbol?: string;
+  read: boolean;
+  isImportant: boolean;
+}

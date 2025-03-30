@@ -1,43 +1,53 @@
 
 import React, { useState, useEffect } from 'react';
-import { Stock, MarketIndex, ChartData } from '@/types/market';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getChartData, subscribeToStocks, subscribeToIndices } from '@/services/realTimeMarketService';
 import Layout from '@/components/layout/Layout';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import IndexCard from '@/components/dashboard/IndexCard';
 import StockTable from '@/components/dashboard/StockTable';
-import StockChart from '@/components/charts/StockChart';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import WatchlistPanel from '@/components/watchlist/WatchlistPanel';
+import NewsPanel from '@/components/news/NewsPanel';
+import { usePortfolioSummary } from '@/services/portfolioService';
+import { getStocks, getIndices } from '@/services/marketService';
+import { startRealTimeUpdates } from '@/services/realTimeMarketService';
+import { Stock, MarketIndex } from '@/types/market';
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { formatNumber, formatPercent } from '@/lib/utils';
 
 const DashboardPage: React.FC = () => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [indices, setIndices] = useState<MarketIndex[]>([]);
-  const [chartData, setChartData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const { data: portfolioSummary } = usePortfolioSummary();
   
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get initial chart data
-        const chartData = await getChartData('NIFTY50');
-        setChartData(chartData);
+        const [stocksData, indicesData] = await Promise.all([
+          getStocks(),
+          getIndices()
+        ]);
+        
+        setStocks(stocksData);
+        setIndices(indicesData);
         setLoading(false);
         
-        // Subscribe to real-time updates
-        const unsubscribeStocks = subscribeToStocks((updatedStocks) => {
-          setStocks(updatedStocks);
-        });
+        // Start real-time updates
+        const cleanup = startRealTimeUpdates(
+          (updatedStocks) => setStocks(updatedStocks),
+          (updatedIndices) => setIndices(updatedIndices)
+        );
         
-        const unsubscribeIndices = subscribeToIndices((updatedIndices) => {
-          setIndices(updatedIndices);
-        });
-        
-        return () => {
-          unsubscribeStocks();
-          unsubscribeIndices();
-        };
+        return cleanup;
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching market data:', error);
         setLoading(false);
       }
     };
@@ -45,114 +55,116 @@ const DashboardPage: React.FC = () => {
     fetchData();
   }, []);
   
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-96">
-          <p className="text-lg text-muted-foreground">Loading market data...</p>
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-lg text-muted-foreground">Loading dashboard data...</p>
         </div>
-      </Layout>
-    );
-  }
-  
-  return (
-    <Layout>
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {indices.map((index) => (
+      );
+    }
+    
+    return (
+      <div className="grid gap-6">
+        {/* Portfolio Stats */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Portfolio Value</CardDescription>
+              <CardTitle className="text-3xl">
+                ₹{formatNumber(portfolioSummary?.totalValue || 0)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                {portfolioSummary?.totalPnL && portfolioSummary.totalPnL >= 0 ? (
+                  <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                ) : (
+                  <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
+                )}
+                <span className={portfolioSummary?.totalPnL && portfolioSummary.totalPnL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                  {formatPercent(portfolioSummary?.totalPnLPercent || 0)}
+                </span>
+                <span className="text-muted-foreground ml-1">all time</span>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Today's P&L</CardDescription>
+              <CardTitle className={`text-3xl ${portfolioSummary?.todayPnL && portfolioSummary.todayPnL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                ₹{formatNumber(portfolioSummary?.todayPnL || 0)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center text-muted-foreground">
+                <span>Cash Balance: ₹{formatNumber(850000)}</span>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {indices.slice(0, 2).map((index) => (
             <IndexCard key={index.symbol} index={index} />
           ))}
         </div>
         
+        {/* Main Dashboard Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <StockChart data={chartData} symbol="NIFTY 50" fullWidth />
+            <Tabs defaultValue="top-gainers">
+              <TabsList className="mb-4">
+                <TabsTrigger value="top-gainers">Top Gainers</TabsTrigger>
+                <TabsTrigger value="top-losers">Top Losers</TabsTrigger>
+                <TabsTrigger value="most-active">Most Active</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="top-gainers">
+                <StockTable 
+                  stocks={stocks
+                    .filter(stock => stock.changePercent > 0)
+                    .sort((a, b) => b.changePercent - a.changePercent)
+                    .slice(0, 5)} 
+                />
+              </TabsContent>
+              
+              <TabsContent value="top-losers">
+                <StockTable 
+                  stocks={stocks
+                    .filter(stock => stock.changePercent < 0)
+                    .sort((a, b) => a.changePercent - b.changePercent)
+                    .slice(0, 5)} 
+                />
+              </TabsContent>
+              
+              <TabsContent value="most-active">
+                <StockTable 
+                  stocks={stocks
+                    .sort((a, b) => b.volume - a.volume)
+                    .slice(0, 5)} 
+                />
+              </TabsContent>
+            </Tabs>
           </div>
           
-          <div>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Market Highlights</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="gainers">
-                  <TabsList className="grid w-full grid-cols-3 mb-2">
-                    <TabsTrigger value="gainers">Top Gainers</TabsTrigger>
-                    <TabsTrigger value="losers">Top Losers</TabsTrigger>
-                    <TabsTrigger value="active">Most Active</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="gainers">
-                    <div className="space-y-2">
-                      {stocks
-                        .filter(stock => stock.change > 0)
-                        .sort((a, b) => b.changePercent - a.changePercent)
-                        .slice(0, 5)
-                        .map(stock => (
-                          <div key={stock.symbol} className="flex justify-between items-center p-2 rounded-md hover:bg-accent">
-                            <div>
-                              <div className="font-medium">{stock.symbol}</div>
-                              <div className="text-xs text-muted-foreground">{stock.name}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-profit">{stock.price.toFixed(2)}</div>
-                              <div className="text-xs text-profit">+{stock.changePercent.toFixed(2)}%</div>
-                            </div>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="losers">
-                    <div className="space-y-2">
-                      {stocks
-                        .filter(stock => stock.change < 0)
-                        .sort((a, b) => a.changePercent - b.changePercent)
-                        .slice(0, 5)
-                        .map(stock => (
-                          <div key={stock.symbol} className="flex justify-between items-center p-2 rounded-md hover:bg-accent">
-                            <div>
-                              <div className="font-medium">{stock.symbol}</div>
-                              <div className="text-xs text-muted-foreground">{stock.name}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-loss">{stock.price.toFixed(2)}</div>
-                              <div className="text-xs text-loss">{stock.changePercent.toFixed(2)}%</div>
-                            </div>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="active">
-                    <div className="space-y-2">
-                      {stocks
-                        .sort((a, b) => b.volume - a.volume)
-                        .slice(0, 5)
-                        .map(stock => (
-                          <div key={stock.symbol} className="flex justify-between items-center p-2 rounded-md hover:bg-accent">
-                            <div>
-                              <div className="font-medium">{stock.symbol}</div>
-                              <div className="text-xs text-muted-foreground">{stock.name}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className={stock.change >= 0 ? "text-profit" : "text-loss"}>{stock.price.toFixed(2)}</div>
-                              <div className="text-xs text-muted-foreground">Vol: {(stock.volume / 1000).toFixed(0)}K</div>
-                            </div>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+          <div className="lg:col-span-1">
+            <WatchlistPanel stocks={stocks} />
           </div>
         </div>
         
-        <StockTable stocks={stocks} />
+        {/* News Section */}
+        <div className="mt-4">
+          <NewsPanel />
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        {renderContent()}
       </div>
     </Layout>
   );
