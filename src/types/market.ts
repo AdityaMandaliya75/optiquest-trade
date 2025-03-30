@@ -55,6 +55,31 @@ export interface ChartData {
   volume: number;
 }
 
+// Option Interest Data for visualization
+export interface OptionInterestData {
+  timestamp: number;
+  strikePrice: number;
+  callOI: number;
+  putOI: number;
+  ceOiChange: number;
+  peOiChange: number;
+}
+
+export interface TimelineData {
+  time: string;
+  callOI: number;
+  putOI: number;
+  priceLevel: number;
+}
+
+export interface PutCallRatioData {
+  timestamp: number;
+  ratio: number;
+  netChange: number;
+  callOITotal: number;
+  putOITotal: number;
+}
+
 // Portfolio and Trading Types
 export interface PortfolioHolding {
   symbol: string;

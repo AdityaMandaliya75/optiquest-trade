@@ -1,3 +1,4 @@
+
 import { Stock, MarketIndex, Notification, ChartData, OptionChain } from '@/types/market';
 import { getStocks, getIndices, getStockBySymbol, getChartData, getOptionChain } from './marketService';
 import { processStockUpdates } from './notificationService';
@@ -205,12 +206,17 @@ export const subscribeToOptionChain = (
         const priceChange = option.lastPrice * (changePercent / 100);
         const newPrice = option.lastPrice + priceChange;
         
+        // Adjust open interest based on price movement
+        const oiChange = Math.floor((Math.random() - 0.4) * 200);
+        const newOI = Math.max(option.openInterest + oiChange, 0);
+        
         return {
           ...option,
           lastPrice: parseFloat(newPrice.toFixed(2)),
           change: parseFloat((option.change + priceChange).toFixed(2)),
           changePercent: parseFloat((option.changePercent + changePercent).toFixed(2)),
-          volume: option.volume + Math.floor(Math.random() * 20)
+          volume: option.volume + Math.floor(Math.random() * 20),
+          openInterest: newOI
         };
       });
       
@@ -220,12 +226,17 @@ export const subscribeToOptionChain = (
         const priceChange = option.lastPrice * (changePercent / 100);
         const newPrice = option.lastPrice + priceChange;
         
+        // Adjust open interest based on price movement
+        const oiChange = Math.floor((Math.random() - 0.4) * 200);
+        const newOI = Math.max(option.openInterest + oiChange, 0);
+        
         return {
           ...option,
           lastPrice: parseFloat(newPrice.toFixed(2)),
           change: parseFloat((option.change + priceChange).toFixed(2)),
           changePercent: parseFloat((option.changePercent + changePercent).toFixed(2)),
-          volume: option.volume + Math.floor(Math.random() * 20)
+          volume: option.volume + Math.floor(Math.random() * 20),
+          openInterest: newOI
         };
       });
       

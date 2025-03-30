@@ -13,6 +13,7 @@ import IndexCard from '@/components/dashboard/IndexCard';
 import StockTable from '@/components/dashboard/StockTable';
 import WatchlistPanel from '@/components/watchlist/WatchlistPanel';
 import NewsPanel from '@/components/news/NewsPanel';
+import MarketAnalytics from '@/components/markets/MarketAnalytics';
 import { usePortfolioSummary } from '@/services/portfolioService';
 import { getStocks, getIndices } from '@/services/marketService';
 import { startRealTimeUpdates } from '@/services/realTimeMarketService';
@@ -24,6 +25,7 @@ const DashboardPage: React.FC = () => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [indices, setIndices] = useState<MarketIndex[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState('NIFTY');
   
   const { data: portfolioSummary, isLoading: portfolioLoading } = usePortfolioSummary();
   
@@ -54,6 +56,11 @@ const DashboardPage: React.FC = () => {
     
     fetchData();
   }, []);
+  
+  const getSelectedIndexPrice = () => {
+    const index = indices.find(idx => idx.symbol === selectedIndex);
+    return index?.value || 23500; // Default to 23500 if not found
+  };
   
   const renderContent = () => {
     if (loading || portfolioLoading) {
@@ -105,8 +112,21 @@ const DashboardPage: React.FC = () => {
           </Card>
           
           {indices.slice(0, 2).map((index) => (
-            <IndexCard key={index.symbol} index={index} />
+            <IndexCard 
+              key={index.symbol} 
+              index={index} 
+              onClick={() => setSelectedIndex(index.symbol)}
+              isSelected={selectedIndex === index.symbol}
+            />
           ))}
+        </div>
+        
+        {/* Market Analytics Section */}
+        <div className="mb-4">
+          <MarketAnalytics 
+            symbol={selectedIndex} 
+            currentPrice={getSelectedIndexPrice()} 
+          />
         </div>
         
         {/* Main Dashboard Content */}
