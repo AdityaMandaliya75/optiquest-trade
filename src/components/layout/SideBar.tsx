@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ChevronDown, Home, BarChart2, LineChart, PieChart, BookOpen, PanelLeft, Bell, ListFilter, FileText } from 'lucide-react';
+import { ChevronDown, Home, BarChart2, LineChart, PieChart, BookOpen, PanelLeft, Bell, ListFilter, FileText, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   Collapsible, 
@@ -27,7 +27,7 @@ const navItems = [
     children: [
       { title: 'Stocks', path: '/markets/stocks' },
       { title: 'Indices', path: '/markets/indices' },
-      { title: 'Option Chains', path: '/markets/options' }
+      { title: 'Options', path: '/markets/options' }
     ]
   },
   { 

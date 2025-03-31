@@ -129,7 +129,8 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     return indices.map(index => ({
       name: index.symbol,
       change: index.changePercent,
-      fill: index.changePercent >= 0 ? '#22c55e' : '#ef4444'
+      // Fix: Use a string for the fill instead of a function
+      fillColor: index.changePercent >= 0 ? '#22c55e' : '#ef4444'
     }));
   };
   
@@ -224,22 +225,20 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={getPerformanceData()}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 40 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis 
-                      type="number" 
-                      domain={['auto', 'auto']} 
-                      tickFormatter={(value) => `${value.toFixed(2)}%`}
+                      dataKey="name" 
                       stroke="#94a3b8"
+                      tick={{ fontSize: 10 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
                     />
                     <YAxis 
-                      dataKey="name" 
-                      type="category" 
                       stroke="#94a3b8"
-                      width={90}
-                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => `${value.toFixed(2)}%`}
                     />
                     <Tooltip
                       formatter={(value: number) => [`${value.toFixed(2)}%`, 'Change']}
@@ -247,9 +246,9 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
                     />
                     <Bar 
                       dataKey="change" 
-                      radius={[0, 4, 4, 0]} 
+                      radius={[4, 4, 0, 0]} 
                       barSize={20}
-                      fill={(entry) => entry.fill}
+                      fill={(entry) => entry.fillColor}
                     />
                   </BarChart>
                 </ResponsiveContainer>
