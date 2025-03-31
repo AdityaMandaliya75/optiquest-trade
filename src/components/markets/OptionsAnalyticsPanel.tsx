@@ -40,13 +40,10 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
   const [strikeRange, setStrikeRange] = useState<'all' | 'atm' | 'otm' | 'itm'>('all');
   const [oiInterval, setOiInterval] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   
-  // Sample data
   const timelineData = getMockTimelineData();
   const optionData = getMockOptionInterestData(selectedTime, currentPrice);
   
-  // Generate trending OI data
   const getTrendingOIData = () => {
-    // Sort option data by OI change to get trending strikes
     const callTrending = [...optionData]
       .sort((a, b) => Math.abs(b.ceOiChange) - Math.abs(a.ceOiChange))
       .slice(0, 5)
@@ -70,7 +67,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
     return [...callTrending, ...putTrending].sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 8);
   };
   
-  // Generate PE-CE ratio data
   const getPECERatioData = () => {
     return timelineData.map(item => ({
       time: item.time,
@@ -79,9 +75,7 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
     }));
   };
   
-  // Generate multi-strike OI data
   const getMultiStrikeOIData = () => {
-    // Get ATM strike
     const atmStrike = Math.round(currentPrice / 50) * 50;
     const strikes = [
       atmStrike - 200,
@@ -96,7 +90,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
     return timelineData.map(item => {
       const result: any = { time: item.time };
       
-      // Simulate different OI values for different strikes
       strikes.forEach(strike => {
         const multiplier = 1 + Math.sin((strike - atmStrike) / 100) * 0.5;
         result[`${strike}CE`] = Math.round(item.callOI * multiplier * (0.8 + Math.random() * 0.4));
@@ -107,9 +100,7 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
     });
   };
   
-  // Generate OI interval data
   const getOIIntervalData = () => {
-    // Simulate OI data for different time intervals
     let intervals: string[] = [];
     let values: number[] = [];
     
@@ -131,10 +122,8 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
     }));
   };
   
-  // Format numbers with commas
   const formatNumber = (value: number) => value.toLocaleString();
   
-  // Custom tooltip for trending OI
   const TrendingOITooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -185,7 +174,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
             </TabsTrigger>
           </TabsList>
           
-          {/* Trending OI Tab */}
           <TabsContent value="trending-oi" className="space-y-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">Top OI Changes</h3>
@@ -231,7 +219,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
             </div>
           </TabsContent>
           
-          {/* PE-CE Ratio Tab */}
           <TabsContent value="pe-ce-ratio" className="space-y-4">
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -262,7 +249,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
                     dot={{ stroke: '#f59e0b', strokeWidth: 2, r: 3 }}
                     activeDot={{ r: 5 }}
                   />
-                  {/* Reference line for balanced ratio (1.0) */}
                   <ReferenceLine y={1} stroke="#64748b" strokeDasharray="3 3" />
                 </LineChart>
               </ResponsiveContainer>
@@ -289,7 +275,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
             </div>
           </TabsContent>
           
-          {/* Call vs Put OI Tab */}
           <TabsContent value="call-vs-put">
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -338,7 +323,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
             </div>
           </TabsContent>
           
-          {/* Multi-Strike OI Tab */}
           <TabsContent value="multi-strike">
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -362,7 +346,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
                     labelFormatter={(label) => `Time: ${label}`}
                   />
                   <Legend />
-                  {/* Create lines for each strike */}
                   {Object.keys(getMultiStrikeOIData()[0] || {}).filter(key => key !== 'time').map((key, index) => (
                     <Line
                       key={key}
@@ -379,7 +362,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
             </div>
           </TabsContent>
           
-          {/* OI Interval Tab */}
           <TabsContent value="oi-interval">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">OI Changes Over Time</h3>
@@ -428,7 +410,6 @@ const OptionsAnalyticsPanel: React.FC<OptionsAnalyticsPanelProps> = ({
   );
 };
 
-// Helper function to get different colors for different strikes
 const getStrikeColor = (index: number): string => {
   const colors = [
     '#0ea5e9', // blue
@@ -443,8 +424,5 @@ const getStrikeColor = (index: number): string => {
   
   return colors[index % colors.length];
 };
-
-// Include the missing ReferenceLine component
-import { ReferenceLine } from 'recharts';
 
 export default OptionsAnalyticsPanel;
