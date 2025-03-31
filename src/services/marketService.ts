@@ -1,3 +1,4 @@
+
 import { Stock, MarketIndex, OptionChain, ChartData } from '../types/market';
 import { 
   mockStocks, 
@@ -12,6 +13,27 @@ import { generateRandomFluctuation } from '../lib/utils';
 
 let cachedStocks = [...mockStocks];
 let cachedIndices = [...mockIndices];
+
+// Add additional indices that might not be included in the original data
+const additionalIndices = [
+  { symbol: 'NIFTY IT', name: 'Nifty IT', value: 32456.78, open: 32300.45, high: 32500.00, low: 32200.10, change: 156.33, changePercent: 0.48 },
+  { symbol: 'NIFTY AUTO', name: 'Nifty Auto', value: 18934.56, open: 18800.23, high: 19000.12, low: 18750.89, change: 134.33, changePercent: 0.71 },
+  { symbol: 'NIFTY PHARMA', name: 'Nifty Pharma', value: 15678.90, open: 15720.34, high: 15800.56, low: 15650.23, change: -41.44, changePercent: -0.26 },
+  { symbol: 'NIFTY MIDCAP', name: 'Nifty Midcap 100', value: 42567.89, open: 42300.56, high: 42600.23, low: 42100.45, change: 267.33, changePercent: 0.63 },
+  { symbol: 'NIFTY SMALLCAP', name: 'Nifty Smallcap 100', value: 13456.78, open: 13300.45, high: 13500.00, low: 13250.10, change: 156.33, changePercent: 1.17 },
+  { symbol: 'NIFTY FMCG', name: 'Nifty FMCG', value: 51234.56, open: 51100.23, high: 51300.12, low: 51000.89, change: 134.33, changePercent: 0.26 },
+  { symbol: 'NIFTY METAL', name: 'Nifty Metal', value: 7890.12, open: 7950.34, high: 7990.56, low: 7880.23, change: -60.22, changePercent: -0.76 },
+  { symbol: 'NIFTY REALTY', name: 'Nifty Realty', value: 678.90, open: 672.34, high: 680.56, low: 670.23, change: 6.56, changePercent: 0.98 },
+  { symbol: 'NIFTY ENERGY', name: 'Nifty Energy', value: 34567.89, open: 34300.56, high: 34600.23, low: 34200.45, change: 267.33, changePercent: 0.78 }
+];
+
+// Add additional indices to cached indices if they don't exist
+additionalIndices.forEach(newIndex => {
+  if (!cachedIndices.some(index => index.symbol === newIndex.symbol)) {
+    cachedIndices.push(newIndex);
+  }
+});
+
 let cachedOptionChain = { ...mockOptionChain };
 let cachedChartData = [...mockChartData];
 

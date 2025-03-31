@@ -146,19 +146,6 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
           </div>
         </div>
         
-        <div className="mb-4 flex items-center justify-end space-x-1">
-          <span className="text-xs text-gray-400 mr-1">Interval:</span>
-          {['1d', '5d', '1m', '3m', '1y'].map(interval => (
-            <button
-              key={interval}
-              className={`px-2 py-1 text-xs rounded ${interval === selectedInterval ? 'bg-primary text-white' : 'bg-slate-800 text-gray-400'}`}
-              onClick={() => handleIntervalChange(interval)}
-            >
-              {interval}
-            </button>
-          ))}
-        </div>
-        
         <TradingTimeline 
           data={timelineData} 
           onTimeSelected={handleTimeSelected}
@@ -181,7 +168,10 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
       </div>
       
       <div className="mt-4">
-        <IndexComparison interval={selectedInterval} />
+        <IndexComparison 
+          interval={selectedInterval}
+          onIntervalChange={handleIntervalChange}
+        />
       </div>
     </div>
   );

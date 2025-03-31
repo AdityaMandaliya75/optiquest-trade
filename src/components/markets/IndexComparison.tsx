@@ -10,9 +10,10 @@ import { TrendingUp, TrendingDown, Clock } from 'lucide-react';
 
 interface IndexComparisonProps {
   interval: string;
+  onIntervalChange?: (interval: string) => void;
 }
 
-const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
+const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalChange }) => {
   const [indices, setIndices] = useState<MarketIndex[]>([]);
   const [historicalData, setHistoricalData] = useState<Array<{name: string, value: number}[]>>([]);
   const [comparisonView, setComparisonView] = useState<'performance' | 'trend'>('performance');
@@ -24,11 +25,36 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
       try {
         // Get all indices available from NSE/BSE
         const indicesData = await getIndices();
-        setIndices(indicesData);
+        // Add additional indices that might not be included in the original data
+        const allIndices = [...indicesData];
+        
+        // Add mock indices if they don't exist already
+        const additionalIndices = [
+          'NIFTY IT', 'NIFTY AUTO', 'NIFTY PHARMA', 'NIFTY BANK', 
+          'NIFTY MIDCAP', 'NIFTY SMALLCAP', 'NIFTY FMCG', 'NIFTY METAL',
+          'NIFTY REALTY', 'NIFTY ENERGY'
+        ];
+        
+        additionalIndices.forEach(symbol => {
+          if (!allIndices.some(index => index.symbol === symbol)) {
+            allIndices.push({
+              symbol,
+              name: symbol,
+              value: 10000 + Math.random() * 5000,
+              open: 10000 + Math.random() * 5000,
+              high: 10000 + Math.random() * 5000,
+              low: 10000 + Math.random() * 5000,
+              change: (Math.random() - 0.5) * 200,
+              changePercent: (Math.random() - 0.5) * 4
+            });
+          }
+        });
+        
+        setIndices(allIndices);
         
         // Generate mock historical data for each index
         // In a real app, this would come from an API based on the selected interval
-        const mockHistorical = generateHistoricalData(indicesData, interval);
+        const mockHistorical = generateHistoricalData(allIndices, interval);
         setHistoricalData(mockHistorical);
         
         setLoading(false);
@@ -134,6 +160,13 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
     }
   };
   
+  // Handle interval change
+  const handleIntervalClick = (newInterval: string) => {
+    if (onIntervalChange) {
+      onIntervalChange(newInterval);
+    }
+  };
+  
   return (
     <Card className="border-slate-700 bg-slate-900">
       <CardHeader className="pb-2">
@@ -161,7 +194,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
                 <button
                   key={option}
                   className={`px-2 py-1 ${interval === option ? 'bg-primary text-white' : 'text-gray-400'}`}
-                  onClick={() => {/* This is handled in the parent component */}}
+                  onClick={() => handleIntervalClick(option)}
                 >
                   {option}
                 </button>
@@ -183,7 +216,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
                   <BarChart
                     data={getPerformanceData()}
                     layout="vertical"
-                    margin={{ top: 5, right: 30, left: 50, bottom: 5 }}
+                    margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis 
@@ -196,7 +229,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
                       dataKey="name" 
                       type="category" 
                       stroke="#94a3b8"
-                      width={60}
+                      width={90}
                       tick={{ fontSize: 10 }}
                     />
                     <Tooltip
@@ -233,7 +266,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
                       formatter={(value: number) => [value.toFixed(2), '']}
                     />
                     <Legend />
-                    {indices.map((index, i) => (
+                    {indices.slice(0, 10).map((index, i) => (
                       <Line
                         key={index.symbol}
                         type="monotone"
