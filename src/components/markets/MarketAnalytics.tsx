@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   getMockTimelineData, 
   getMockOptionInterestData, 
@@ -10,6 +11,7 @@ import TradingTimeline from './TradingTimeline';
 import PutCallRatioGauge from './PutCallRatioGauge';
 import OptionInterestChart from './OptionInterestChart';
 import { TimelineData, OptionInterestData, PutCallRatioData } from '@/types/market';
+import IndexComparison from './IndexComparison';
 
 interface MarketAnalyticsProps {
   symbol?: string;
@@ -23,6 +25,19 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
   const [timelineData, setTimelineData] = useState<TimelineData[]>([]);
   const [selectedTime, setSelectedTime] = useState<string>('12:00');
   const [selectedTimeIndex, setSelectedTimeIndex] = useState<number>(0);
+  const [selectedInterval, setSelectedInterval] = useState<string>('1d');
+  const [rangeMode, setRangeMode] = useState<boolean>(false);
+  const [rangeData, setRangeData] = useState<{
+    startTime: string;
+    endTime: string;
+    startIndex: number;
+    endIndex: number;
+  }>({
+    startTime: '10:00',
+    endTime: '14:00',
+    startIndex: 0,
+    endIndex: 0
+  });
   const [optionInterestData, setOptionInterestData] = useState<OptionInterestData[]>([]);
   const [putCallRatioData, setPutCallRatioData] = useState<{
     current: PutCallRatioData;
@@ -55,7 +70,15 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
     // Get put-call ratio data
     const pcrData = getMockPutCallRatioData(noonIndex, timeline);
     setPutCallRatioData(pcrData);
-  }, [currentPrice]);
+    
+    // Set initial range data
+    setRangeData({
+      startTime: timeline[Math.floor(timeline.length / 4)]?.time || '10:00',
+      endTime: timeline[Math.floor(timeline.length * 3 / 4)]?.time || '14:00',
+      startIndex: Math.floor(timeline.length / 4),
+      endIndex: Math.floor(timeline.length * 3 / 4)
+    });
+  }, [currentPrice, selectedInterval]);
   
   const handleTimeSelected = (time: string, index: number) => {
     setSelectedTime(time);
@@ -71,6 +94,30 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
     setPutCallRatioData(pcrData);
   };
   
+  const handleRangeSelected = (startTime: string, endTime: string, startIndex: number, endIndex: number) => {
+    setRangeData({ startTime, endTime, startIndex, endIndex });
+    
+    // Get data for the selected range
+    const rangeAvgIndex = Math.floor((startIndex + endIndex) / 2);
+    
+    // Update option interest data for the range's average time
+    const interestData = getMockOptionInterestData(
+      timelineData[rangeAvgIndex]?.time || '12:00', 
+      timelineData[rangeAvgIndex]?.priceLevel || currentPrice
+    );
+    setOptionInterestData(interestData);
+    
+    // Update Put-Call ratio data for the range
+    const pcrData = getMockPutCallRatioData(rangeAvgIndex, timelineData);
+    setPutCallRatioData(pcrData);
+  };
+  
+  const handleIntervalChange = (interval: string) => {
+    setSelectedInterval(interval);
+    // In a real app, we would fetch new data for the selected interval
+    // For now, we'll just simulate it by regenerating mock data
+  };
+  
   return (
     <div className="space-y-6">
       <div className="bg-slate-900 rounded-lg border border-slate-700 p-4">
@@ -78,18 +125,49 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
           <h2 className="text-xl font-bold text-white flex items-center">
             {symbol} <span className="text-sm ml-2 text-gray-400">Option Chain Analytics</span>
           </h2>
-          <div className="px-3 py-1 bg-slate-800 rounded-full text-sm font-medium">
-            LTP: <span className="text-primary">{currentPrice}</span>
+          <div className="flex items-center space-x-2">
+            <div className="bg-slate-800 rounded-md p-1 flex items-center">
+              <button 
+                className={`px-2 py-1 text-xs rounded ${!rangeMode ? 'bg-primary text-white' : 'text-gray-400'}`}
+                onClick={() => setRangeMode(false)}
+              >
+                Single
+              </button>
+              <button 
+                className={`px-2 py-1 text-xs rounded ${rangeMode ? 'bg-primary text-white' : 'text-gray-400'}`}
+                onClick={() => setRangeMode(true)}
+              >
+                Range
+              </button>
+            </div>
+            <div className="px-3 py-1 bg-slate-800 rounded-full text-sm font-medium">
+              LTP: <span className="text-primary">{currentPrice}</span>
+            </div>
           </div>
+        </div>
+        
+        <div className="mb-4 flex items-center justify-end space-x-1">
+          <span className="text-xs text-gray-400 mr-1">Interval:</span>
+          {['1d', '5d', '1m', '3m', '1y'].map(interval => (
+            <button
+              key={interval}
+              className={`px-2 py-1 text-xs rounded ${interval === selectedInterval ? 'bg-primary text-white' : 'bg-slate-800 text-gray-400'}`}
+              onClick={() => handleIntervalChange(interval)}
+            >
+              {interval}
+            </button>
+          ))}
         </div>
         
         <TradingTimeline 
           data={timelineData} 
           onTimeSelected={handleTimeSelected}
+          onRangeSelected={handleRangeSelected}
+          rangeMode={rangeMode}
         />
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PutCallRatioGauge 
           data={putCallRatioData.current} 
           historyData={putCallRatioData.history} 
@@ -98,8 +176,12 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
         <OptionInterestChart 
           data={optionInterestData} 
           underlyingPrice={timelineData[selectedTimeIndex]?.priceLevel || currentPrice}
-          timeLabel={selectedTime}
+          timeLabel={rangeMode ? `${rangeData.startTime} - ${rangeData.endTime}` : selectedTime}
         />
+      </div>
+      
+      <div className="mt-4">
+        <IndexComparison interval={selectedInterval} />
       </div>
     </div>
   );

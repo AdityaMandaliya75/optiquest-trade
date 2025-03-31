@@ -74,7 +74,7 @@ const DashboardPage: React.FC = () => {
     return (
       <div className="grid gap-6">
         {/* Portfolio Stats */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Portfolio Value</CardDescription>
@@ -111,14 +111,16 @@ const DashboardPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          {indices.slice(0, 2).map((index) => (
-            <IndexCard 
-              key={index.symbol} 
-              index={index} 
-              onClick={() => setSelectedIndex(index.symbol)}
-              isSelected={selectedIndex === index.symbol}
-            />
-          ))}
+          <div className="grid grid-cols-2 gap-4 col-span-2">
+            {indices.slice(0, 4).map((index) => (
+              <IndexCard 
+                key={index.symbol} 
+                index={index} 
+                onClick={() => setSelectedIndex(index.symbol)}
+                isSelected={selectedIndex === index.symbol}
+              />
+            ))}
+          </div>
         </div>
         
         {/* Market Analytics Section */}
