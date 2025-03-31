@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,83 +20,88 @@ import NewsPage from "./pages/NewsPage";
 import WatchlistPage from "./pages/WatchlistPage";
 import NotFound from "./pages/NotFound";
 
+// Create a new QueryClient instance
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <NotificationProvider>
-            <WatchlistProvider>
-              <Toaster />
-              <Sonner />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/markets/stocks" element={
-                  <ProtectedRoute>
-                    <MarketsPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/markets/stocks/:symbol" element={
-                  <ProtectedRoute>
-                    <StockDetailPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/markets/indices" element={
-                  <ProtectedRoute>
-                    <MarketsPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/markets/options" element={
-                  <ProtectedRoute>
-                    <StockDetailPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/watchlist" element={
-                  <ProtectedRoute>
-                    <WatchlistPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/news" element={
-                  <ProtectedRoute>
-                    <NewsPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/portfolio" element={
-                  <ProtectedRoute>
-                    <PortfolioPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/orders" element={
-                  <ProtectedRoute>
-                    <OrdersPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/charts/technical" element={
-                  <ProtectedRoute>
-                    <StockDetailPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/charts/advanced" element={
-                  <ProtectedRoute>
-                    <StockDetailPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </WatchlistProvider>
-          </NotificationProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <NotificationProvider>
+                <WatchlistProvider>
+                  <Toaster />
+                  <Sonner />
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/dashboard" element={
+                      <ProtectedRoute>
+                        <DashboardPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/markets/stocks" element={
+                      <ProtectedRoute>
+                        <MarketsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/markets/stocks/:symbol" element={
+                      <ProtectedRoute>
+                        <StockDetailPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/markets/indices" element={
+                      <ProtectedRoute>
+                        <MarketsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/markets/options" element={
+                      <ProtectedRoute>
+                        <StockDetailPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/watchlist" element={
+                      <ProtectedRoute>
+                        <WatchlistPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/news" element={
+                      <ProtectedRoute>
+                        <NewsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/portfolio" element={
+                      <ProtectedRoute>
+                        <PortfolioPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/orders" element={
+                      <ProtectedRoute>
+                        <OrdersPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/charts/technical" element={
+                      <ProtectedRoute>
+                        <StockDetailPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/charts/advanced" element={
+                      <ProtectedRoute>
+                        <StockDetailPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </WatchlistProvider>
+              </NotificationProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
+  );
+};
 
 export default App;

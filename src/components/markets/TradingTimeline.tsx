@@ -73,7 +73,7 @@ const TradingTimeline: React.FC<TradingTimelineProps> = ({ data, onTimeSelected 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
               <div>Call OI: <span className="text-cyan-400">{data[selectedIndex].callOI.toLocaleString()}</span></div>
               <div>Put OI: <span className="text-red-400">{data[selectedIndex].putOI.toLocaleString()}</span></div>
-              <div colSpan={2}>Price: {data[selectedIndex].priceLevel}</div>
+              <div className="col-span-2">Price: {data[selectedIndex].priceLevel}</div>
             </div>
           </div>
         )}
