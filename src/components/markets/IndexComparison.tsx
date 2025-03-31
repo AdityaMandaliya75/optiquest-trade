@@ -77,6 +77,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     if (interval === '1m') dataPoints = 30;
     if (interval === '3m') dataPoints = 90;
     if (interval === '1y') dataPoints = 12;
+    if (interval === 'all') dataPoints = 36; // For "All" time - use 3 years of data
     
     indices.forEach(index => {
       const data: {name: string, value: number}[] = [];
@@ -92,10 +93,17 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
           const date = new Date();
           date.setDate(date.getDate() - (dataPoints - i - 1));
           timestamp = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        } else {
+        } else if (interval === '1y') {
           const date = new Date();
           date.setMonth(date.getMonth() - (dataPoints - i - 1));
           timestamp = date.toLocaleDateString('en-US', { month: 'short' });
+        } else {
+          // For "All" time interval
+          const date = new Date();
+          date.setMonth(date.getMonth() - (dataPoints - i - 1));
+          const year = date.getFullYear();
+          const month = date.toLocaleDateString('en-US', { month: 'short' });
+          timestamp = `${month} ${year}`;
         }
         
         // Generate a value with some randomness but trending toward the current value
@@ -156,6 +164,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
       case '1m': return 'Last Month';
       case '3m': return 'Last 3 Months';
       case '1y': return 'Last Year';
+      case 'all': return 'All Time';
       default: return 'Today';
     }
   };
@@ -190,13 +199,13 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
               </TabsList>
             </Tabs>
             <div className="flex items-center text-xs bg-slate-800 rounded-lg overflow-hidden">
-              {['1d', '5d', '1m', '3m', '1y'].map(option => (
+              {['1d', '5d', '1m', '3m', '1y', 'all'].map(option => (
                 <button
                   key={option}
                   className={`px-2 py-1 ${interval === option ? 'bg-primary text-white' : 'text-gray-400'}`}
                   onClick={() => handleIntervalClick(option)}
                 >
-                  {option}
+                  {option === 'all' ? 'All' : option}
                 </button>
               ))}
             </div>
@@ -221,7 +230,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis 
                       type="number" 
-                      domain={[-Math.max(...indices.map(i => Math.abs(i.changePercent))) * 1.2, Math.max(...indices.map(i => Math.abs(i.changePercent))) * 1.2]} 
+                      domain={['auto', 'auto']} 
                       tickFormatter={(value) => `${value.toFixed(2)}%`}
                       stroke="#94a3b8"
                     />
@@ -240,6 +249,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
                       dataKey="change" 
                       radius={[0, 4, 4, 0]} 
                       barSize={20}
+                      fill={(entry) => entry.fill}
                     />
                   </BarChart>
                 </ResponsiveContainer>

@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   getMockTimelineData, 
   getMockOptionInterestData, 
@@ -12,6 +11,7 @@ import PutCallRatioGauge from './PutCallRatioGauge';
 import OptionInterestChart from './OptionInterestChart';
 import { TimelineData, OptionInterestData, PutCallRatioData } from '@/types/market';
 import IndexComparison from './IndexComparison';
+import OptionsAnalyticsPanel from './OptionsAnalyticsPanel';
 
 interface MarketAnalyticsProps {
   symbol?: string;
@@ -78,7 +78,7 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
       startIndex: Math.floor(timeline.length / 4),
       endIndex: Math.floor(timeline.length * 3 / 4)
     });
-  }, [currentPrice, selectedInterval]);
+  }, [currentPrice]);
   
   const handleTimeSelected = (time: string, index: number) => {
     setSelectedTime(time);
@@ -166,6 +166,12 @@ const MarketAnalytics: React.FC<MarketAnalyticsProps> = ({
           timeLabel={rangeMode ? `${rangeData.startTime} - ${rangeData.endTime}` : selectedTime}
         />
       </div>
+      
+      <OptionsAnalyticsPanel 
+        symbol={symbol}
+        currentPrice={currentPrice}
+        selectedTime={selectedTime}
+      />
       
       <div className="mt-4">
         <IndexComparison 
