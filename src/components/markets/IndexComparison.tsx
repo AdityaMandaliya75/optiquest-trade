@@ -22,6 +22,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
     const fetchIndices = async () => {
       setLoading(true);
       try {
+        // Get all indices available from NSE/BSE
         const indicesData = await getIndices();
         setIndices(indicesData);
         
@@ -89,7 +90,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
     return result;
   };
   
-  // Prepare data for the performance comparison bar chart
+  // Prepare data for the performance comparison bar chart with % gain on Y-axis and indices on X-axis
   const getPerformanceData = () => {
     return indices.map(index => ({
       name: index.symbol,
@@ -144,16 +145,29 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
               {getIntervalText()}
             </span>
           </CardTitle>
-          <Tabs 
-            value={comparisonView} 
-            onValueChange={(value) => setComparisonView(value as 'performance' | 'trend')}
-            className="w-auto"
-          >
-            <TabsList className="h-8">
-              <TabsTrigger value="performance" className="text-xs px-3 py-0.5 h-7">Performance</TabsTrigger>
-              <TabsTrigger value="trend" className="text-xs px-3 py-0.5 h-7">Trend</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-2">
+            <Tabs 
+              value={comparisonView} 
+              onValueChange={(value) => setComparisonView(value as 'performance' | 'trend')}
+              className="w-auto"
+            >
+              <TabsList className="h-8">
+                <TabsTrigger value="performance" className="text-xs px-3 py-0.5 h-7">Performance</TabsTrigger>
+                <TabsTrigger value="trend" className="text-xs px-3 py-0.5 h-7">Trend</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="flex items-center text-xs bg-slate-800 rounded-lg overflow-hidden">
+              {['1d', '5d', '1m', '3m', '1y'].map(option => (
+                <button
+                  key={option}
+                  className={`px-2 py-1 ${interval === option ? 'bg-primary text-white' : 'text-gray-400'}`}
+                  onClick={() => {/* This is handled in the parent component */}}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -164,12 +178,12 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
         ) : (
           <>
             {comparisonView === 'performance' ? (
-              <div className="h-80">
+              <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={getPerformanceData()}
                     layout="vertical"
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    margin={{ top: 5, right: 30, left: 50, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis 
@@ -183,6 +197,7 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
                       type="category" 
                       stroke="#94a3b8"
                       width={60}
+                      tick={{ fontSize: 10 }}
                     />
                     <Tooltip
                       formatter={(value: number) => [`${value.toFixed(2)}%`, 'Change']}
@@ -193,12 +208,11 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
                       radius={[0, 4, 4, 0]} 
                       barSize={20}
                     />
-                    <Legend />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="h-80">
+              <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={getTrendData()}
@@ -235,12 +249,12 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval }) => {
               </div>
             )}
             
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
               {indices.map(index => (
                 <div key={index.symbol} className="bg-slate-800 rounded-lg p-2 text-center">
                   <div className="text-xs text-gray-400">{index.symbol}</div>
-                  <div className="text-lg font-semibold">{index.value.toLocaleString()}</div>
-                  <div className={`flex items-center justify-center text-sm ${getPriceChangeClass(index.change)}`}>
+                  <div className="text-sm font-semibold">{index.value.toLocaleString()}</div>
+                  <div className={`flex items-center justify-center text-xs ${getPriceChangeClass(index.change)}`}>
                     {index.change >= 0 ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
                     {formatPercent(index.changePercent)}
                   </div>
