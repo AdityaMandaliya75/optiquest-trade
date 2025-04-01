@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,12 +22,9 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     const fetchIndices = async () => {
       setLoading(true);
       try {
-        // Get all indices available from NSE/BSE
         const indicesData = await getIndices();
-        // Add additional indices that might not be included in the original data
         const allIndices = [...indicesData];
         
-        // Add mock indices if they don't exist already
         const additionalIndices = [
           'NIFTY IT', 'NIFTY AUTO', 'NIFTY PHARMA', 'NIFTY BANK', 
           'NIFTY MIDCAP', 'NIFTY SMALLCAP', 'NIFTY FMCG', 'NIFTY METAL',
@@ -52,8 +48,6 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
         
         setIndices(allIndices);
         
-        // Generate mock historical data for each index
-        // In a real app, this would come from an API based on the selected interval
         const mockHistorical = generateHistoricalData(allIndices, interval);
         setHistoricalData(mockHistorical);
         
@@ -67,17 +61,15 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     fetchIndices();
   }, [interval]);
   
-  // Generate mock historical data based on interval
   const generateHistoricalData = (indices: MarketIndex[], interval: string): Array<{name: string, value: number}[]> => {
     const result: Array<{name: string, value: number}[]> = [];
     
-    // Number of data points based on interval
-    let dataPoints = 24; // 1 day (hourly)
+    let dataPoints = 24;
     if (interval === '5d') dataPoints = 5;
     if (interval === '1m') dataPoints = 30;
     if (interval === '3m') dataPoints = 90;
     if (interval === '1y') dataPoints = 12;
-    if (interval === 'all') dataPoints = 36; // For "All" time - use 3 years of data
+    if (interval === 'all') dataPoints = 36;
     
     indices.forEach(index => {
       const data: {name: string, value: number}[] = [];
@@ -98,7 +90,6 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
           date.setMonth(date.getMonth() - (dataPoints - i - 1));
           timestamp = date.toLocaleDateString('en-US', { month: 'short' });
         } else {
-          // For "All" time interval
           const date = new Date();
           date.setMonth(date.getMonth() - (dataPoints - i - 1));
           const year = date.getFullYear();
@@ -106,7 +97,6 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
           timestamp = `${month} ${year}`;
         }
         
-        // Generate a value with some randomness but trending toward the current value
         const progress = i / (dataPoints - 1);
         const randomFactor = (Math.random() - 0.5) * 0.01 * lastValue;
         const value = lastValue * (1 - progress) + index.value * progress + randomFactor;
@@ -124,17 +114,14 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     return result;
   };
   
-  // Prepare data for the performance comparison bar chart with % gain on Y-axis and indices on X-axis
   const getPerformanceData = () => {
     return indices.map(index => ({
       name: index.symbol,
       change: index.changePercent,
-      // Fix: Use a string for the fill instead of a function
       fillColor: index.changePercent >= 0 ? '#22c55e' : '#ef4444'
     }));
   };
   
-  // Format trend data for the line chart
   const getTrendData = () => {
     if (historicalData.length === 0 || indices.length === 0) return [];
     
@@ -157,7 +144,6 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     return result;
   };
   
-  // Get interval display text
   const getIntervalText = () => {
     switch(interval) {
       case '1d': return 'Today';
@@ -170,7 +156,6 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
     }
   };
   
-  // Handle interval change
   const handleIntervalClick = (newInterval: string) => {
     if (onIntervalChange) {
       onIntervalChange(newInterval);
@@ -248,8 +233,16 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
                       dataKey="change" 
                       radius={[4, 4, 0, 0]} 
                       barSize={20}
-                      fill={(entry) => entry.fillColor}
-                    />
+                      fill="#8884d8"
+                      fillOpacity={0.8}
+                      name="Change %"
+                    >
+                      {
+                        getPerformanceData().map((entry, index) => (
+                          <rect key={`rect-${index}`} fill={entry.fillColor} />
+                        ))
+                      }
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -310,17 +303,16 @@ const IndexComparison: React.FC<IndexComparisonProps> = ({ interval, onIntervalC
   );
 };
 
-// Helper function to get different colors for each index line
 const getIndexColor = (index: number): string => {
   const colors = [
-    '#0ea5e9', // blue
-    '#f97316', // orange
-    '#22c55e', // green
-    '#a855f7', // purple
-    '#ec4899', // pink
-    '#14b8a6', // teal
-    '#eab308', // yellow
-    '#f43f5e', // red
+    '#0ea5e9',
+    '#f97316',
+    '#22c55e',
+    '#a855f7',
+    '#ec4899',
+    '#14b8a6',
+    '#eab308',
+    '#f43f5e',
   ];
   
   return colors[index % colors.length];
