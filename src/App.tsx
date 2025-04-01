@@ -62,6 +62,11 @@ const App = () => {
                         <MarketsPage />
                       </ProtectedRoute>
                     } />
+                    <Route path="/markets/option-analytics" element={
+                      <ProtectedRoute>
+                        <MarketsPage />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/watchlist" element={
                       <ProtectedRoute>
                         <WatchlistPage />
