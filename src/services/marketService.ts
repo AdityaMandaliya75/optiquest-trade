@@ -133,6 +133,16 @@ export const fetchFromEdgeFunction = async (action: string, params: Record<strin
   }
 };
 
+// Fetch external stock data (Yahoo Finance or other API)
+export const fetchExternalMarketData = async () => {
+  try {
+    return await fetchFromEdgeFunction('external-market-data');
+  } catch (error) {
+    console.error("Error fetching external market data:", error);
+    throw error;
+  }
+};
+
 // Helper functions to map database records to our types
 function mapStockFromDatabase(data: any): Stock {
   return {

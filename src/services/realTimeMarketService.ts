@@ -1,5 +1,6 @@
+
 import { Stock, MarketIndex, Notification, ChartData, OptionChain } from '@/types/market';
-import { getStocks, getIndices, getStockBySymbol, getChartData, getOptionChain } from './marketService';
+import { getStocks, getIndices, getStockBySymbol, getChartData, getOptionChain, fetchFromEdgeFunction } from './marketService';
 import { processStockUpdates } from './notificationService';
 
 // Re-export functions from marketService
@@ -19,6 +20,32 @@ let chartIntervals: Record<string, number> = {};
 let optionChainIntervals: Record<string, number> = {};
 let notificationCallbacks: NotificationCallback[] = [];
 
+// External API fetching function
+const fetchExternalStockData = async (): Promise<Stock[]> => {
+  try {
+    // Use edge function to fetch from Yahoo Finance or other API
+    const response = await fetchFromEdgeFunction('external-stocks', { source: 'yahoo' });
+    return response as Stock[] || [];
+  } catch (error) {
+    console.error("Error fetching external stock data:", error);
+    // Fallback to database if API call fails
+    return getStocks();
+  }
+};
+
+// External API fetching for market indices
+const fetchExternalIndicesData = async (): Promise<MarketIndex[]> => {
+  try {
+    // Use edge function to fetch market indices
+    const response = await fetchFromEdgeFunction('external-indices', { source: 'yahoo' });
+    return response as MarketIndex[] || [];
+  } catch (error) {
+    console.error("Error fetching external indices data:", error);
+    // Fallback to database if API call fails
+    return getIndices();
+  }
+};
+
 // Start real-time updates
 export const startRealTimeUpdates = (
   onStocksUpdate: StocksCallback,
@@ -36,23 +63,59 @@ export const startRealTimeUpdates = (
   // Initialize data
   const initialize = async () => {
     try {
-      stocks = await getStocks();
-      indices = await getIndices();
+      // First try to fetch from external API
+      try {
+        stocks = await fetchExternalStockData();
+      } catch (apiError) {
+        console.error("Error fetching from external API, falling back to database:", apiError);
+        stocks = await getStocks();
+      }
+      
+      // Get indices data
+      try {
+        indices = await fetchExternalIndicesData();
+      } catch (apiError) {
+        console.error("Error fetching indices from external API, falling back to database:", apiError);
+        indices = await getIndices();
+      }
       
       // Send initial data
       onStocksUpdate([...stocks]);
       onIndicesUpdate([...indices]);
     } catch (error) {
       console.error("Error initializing real-time market data:", error);
+      // Attempt to use database as ultimate fallback
+      try {
+        stocks = await getStocks();
+        indices = await getIndices();
+        onStocksUpdate([...stocks]);
+        onIndicesUpdate([...indices]);
+      } catch (dbError) {
+        console.error("Critical error: Could not fetch data from any source", dbError);
+      }
     }
   };
   
   initialize();
   
   // Update stocks every 5 seconds
-  stocksInterval = window.setInterval(() => {
+  stocksInterval = window.setInterval(async () => {
     try {
-      // Simulate price changes
+      // Try to fetch fresh data from API first
+      let freshData: Stock[] = [];
+      
+      try {
+        freshData = await fetchExternalStockData();
+        if (freshData.length > 0) {
+          stocks = freshData;
+          onStocksUpdate([...stocks]);
+          return; // Exit early if we got fresh data
+        }
+      } catch (apiError) {
+        console.log("Using simulation for stock updates", apiError);
+      }
+      
+      // Fall back to simulation if API fails or returns empty data
       stocks = stocks.map(stock => {
         const changePercent = (Math.random() * 2 - 1) * 0.5; // Random change between -0.5% and 0.5%
         const priceChange = stock.price * (changePercent / 100);
@@ -85,9 +148,23 @@ export const startRealTimeUpdates = (
   }, 5000);
   
   // Update indices every 10 seconds
-  indicesInterval = window.setInterval(() => {
+  indicesInterval = window.setInterval(async () => {
     try {
-      // Simulate index changes
+      // Try to fetch fresh data from API first
+      let freshData: MarketIndex[] = [];
+      
+      try {
+        freshData = await fetchExternalIndicesData();
+        if (freshData.length > 0) {
+          indices = freshData;
+          onIndicesUpdate([...indices]);
+          return; // Exit early if we got fresh data
+        }
+      } catch (apiError) {
+        console.log("Using simulation for indices updates", apiError);
+      }
+      
+      // Fall back to simulation if API fails or returns empty data
       indices = indices.map(index => {
         const changePercent = (Math.random() * 2 - 1) * 0.3; // Random change between -0.3% and 0.3%
         const valueChange = index.value * (changePercent / 100);
@@ -139,7 +216,18 @@ export const subscribeToChart = (
   // Initialize with current data
   const initialize = async () => {
     try {
-      chartData = await getChartData(symbol);
+      // Try to fetch from external API first
+      try {
+        const response = await fetchFromEdgeFunction('external-chart', { symbol });
+        chartData = response as ChartData[] || [];
+        if (chartData.length === 0) {
+          throw new Error("No chart data from external API");
+        }
+      } catch (apiError) {
+        console.log("Falling back to database for chart data", apiError);
+        chartData = await getChartData(symbol);
+      }
+      
       callback(symbol, [...chartData]);
     } catch (error) {
       console.error(`Error initializing chart data for ${symbol}:`, error);
@@ -151,10 +239,25 @@ export const subscribeToChart = (
   // Update chart data every 10 seconds
   chartIntervals[symbol] = window.setInterval(async () => {
     try {
-      // Get latest data
+      // Try to get fresh chart data from API
+      let freshData: ChartData[] = [];
+      
+      try {
+        const response = await fetchFromEdgeFunction('external-chart-update', { symbol });
+        freshData = response as ChartData[] || [];
+        if (freshData.length > 0) {
+          chartData = freshData;
+          callback(symbol, [...chartData]);
+          return; // Exit early if we got fresh data
+        }
+      } catch (apiError) {
+        console.log(`Using simulation for chart updates for ${symbol}`, apiError);
+      }
+      
+      // Get latest data from database
       const latestData = await getChartData(symbol);
       
-      // Add a new data point with slight changes
+      // If we have data, add a new data point with slight changes
       if (latestData.length > 0) {
         const lastPoint = latestData[latestData.length - 1];
         const newTimestamp = lastPoint.timestamp + 5 * 60 * 1000; // 5 minutes
@@ -203,9 +306,19 @@ export const subscribeToOptionChain = (
   // Initialize with current data
   const initialize = async () => {
     try {
-      const chain = await getOptionChain(symbol);
-      optionChain = chain;
+      // Try to fetch option data from external API
+      try {
+        const response = await fetchFromEdgeFunction('external-options', { symbol });
+        optionChain = response as OptionChain;
+        if (!optionChain || (!optionChain.calls?.length && !optionChain.puts?.length)) {
+          throw new Error("Invalid option data from external API");
+        }
+      } catch (apiError) {
+        console.log("Falling back to database for option data", apiError);
+        optionChain = await getOptionChain(symbol);
+      }
       
+      // Get current stock price
       const stock = await getStockBySymbol(symbol);
       stockPrice = stock?.price || 0;
       
@@ -222,6 +335,23 @@ export const subscribeToOptionChain = (
   // Update option chain every 15 seconds
   optionChainIntervals[symbol] = window.setInterval(async () => {
     try {
+      // Try to get fresh options data from API
+      let freshData: OptionChain | null = null;
+      
+      try {
+        const response = await fetchFromEdgeFunction('external-options-update', { symbol });
+        freshData = response as OptionChain;
+        if (freshData && (freshData.calls?.length || freshData.puts?.length)) {
+          optionChain = freshData;
+          const stock = await getStockBySymbol(symbol);
+          stockPrice = stock?.price || 0;
+          callback({...optionChain, underlyingPrice: stockPrice});
+          return; // Exit early if we got fresh data
+        }
+      } catch (apiError) {
+        console.log(`Using simulation for options updates for ${symbol}`, apiError);
+      }
+      
       const stock = await getStockBySymbol(symbol);
       stockPrice = stock?.price || 0;
       
