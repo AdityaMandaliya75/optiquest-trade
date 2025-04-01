@@ -1,166 +1,219 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/context/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { ChevronRight, UserPlus, LogIn } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-const LoginPage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
+const LoginPage = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [formError, setFormError] = useState('');
+  const [authTab, setAuthTab] = useState('login');
+  const { login, signUp, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // In a real application, this would make an API call to authenticate
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store auth token in localStorage
-      localStorage.setItem('isAuthenticated', 'true');
-      
-      toast({
-        title: "Login successful",
-        description: "Welcome back to TradeSim",
-      });
-      
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
       navigate('/dashboard');
-    } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "Please check your credentials and try again",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
     }
-  };
-
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+  }, [isAuthenticated, navigate]);
+  
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setFormError('');
     
-    // In a real application, this would make an API call to register
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: "Registration successful",
-        description: "Your account has been created. Please log in.",
-      });
-    } catch (error) {
-      toast({
-        title: "Registration failed",
-        description: "Please check your details and try again",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      await login(email, password);
+    } catch (error: any) {
+      setFormError(error.message || 'Login failed. Please try again.');
     }
   };
-
+  
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    
+    if (password.length < 6) {
+      setFormError('Password must be at least 6 characters long');
+      return;
+    }
+    
+    try {
+      await signUp(email, password, firstName, lastName);
+      setAuthTab('login');
+    } catch (error: any) {
+      setFormError(error.message || 'Registration failed. Please try again.');
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+  
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-background/80 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">TradeSim</CardTitle>
-          <CardDescription>
-            Paper Trading Platform for the Indian Market
-          </CardDescription>
-        </CardHeader>
-        <Tabs defaultValue="login" className="w-full">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-extrabold text-primary">NexaTrade</h1>
+          <p className="text-muted-foreground">Advanced Trading Platform</p>
+        </div>
+        
+        <Tabs value={authTab} onValueChange={setAuthTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="register">Register</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
+          
           <TabsContent value="login">
-            <form onSubmit={handleLogin}>
-              <CardContent className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="email@example.com" required />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <Button variant="link" className="px-0 text-xs font-normal h-auto">
-                      Forgot password?
-                    </Button>
+            <Card>
+              <CardHeader>
+                <CardTitle>Login</CardTitle>
+                <CardDescription>
+                  Sign in to your account to continue
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={handleLoginSubmit}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      required
+                    />
                   </div>
-                  <Input id="password" type="password" required />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">Logging in...</span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      Log in <LogIn className="h-4 w-4" />
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label htmlFor="password">Password</Label>
+                      <a href="#" className="text-sm text-primary hover:underline">
+                        Forgot password?
+                      </a>
+                    </div>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {formError && (
+                    <div className="text-destructive text-sm">{formError}</div>
                   )}
-                </Button>
-              </CardFooter>
-            </form>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
           </TabsContent>
-          <TabsContent value="register">
-            <form onSubmit={handleRegister}>
-              <CardContent className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" type="text" placeholder="John Doe" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-email">Email</Label>
-                  <Input id="reg-email" type="email" placeholder="email@example.com" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reg-password">Password</Label>
-                  <Input id="reg-password" type="password" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
-                  <Input id="confirm-password" type="password" required />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">Registering...</span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      Register <UserPlus className="h-4 w-4" />
-                    </span>
+          
+          <TabsContent value="signup">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Account</CardTitle>
+                <CardDescription>
+                  Sign up for a new account to start trading
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSignupSubmit}>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="John"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Doe"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signupEmail">Email</Label>
+                    <Input
+                      id="signupEmail"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signupPassword">Password</Label>
+                    <Input
+                      id="signupPassword"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Password must be at least 6 characters long
+                    </p>
+                  </div>
+                  
+                  {formError && (
+                    <div className="text-destructive text-sm">{formError}</div>
                   )}
-                </Button>
-              </CardFooter>
-            </form>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating account...
+                      </>
+                    ) : (
+                      'Create Account'
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
           </TabsContent>
         </Tabs>
-        <div className="mt-4 text-center text-sm text-muted-foreground p-4">
-          <p>
-            By continuing, you agree to our Terms of Service and Privacy Policy.
-          </p>
-          <div className="mt-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-primary"
-              onClick={() => navigate('/dashboard')}
-            >
-              Continue as Guest <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
+        
+        <div className="mt-4 text-center text-sm text-muted-foreground">
+          <p>Demo accounts available:</p>
+          <p>Email: demo@example.com | Password: demo123</p>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency, formatNumber, formatPercent, getPriceChangeClass } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { usePlaceOrder } from '@/services/portfolioService';
+import { useAuth } from '@/context/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 interface TradePanelProps {
   stock?: Stock;
@@ -20,7 +23,7 @@ interface TradePanelProps {
     option: Option;
     underlyingSymbol: string;
   };
-  onPlaceOrder: (
+  onPlaceOrder?: (
     symbol: string,
     quantity: number,
     price: number,
@@ -38,6 +41,8 @@ const TradePanel: React.FC<TradePanelProps> = ({ stock, option, onPlaceOrder }) 
   const [quantity, setQuantity] = useState('1');
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
+  const placeOrderMutation = usePlaceOrder();
   
   const instrumentType = stock ? 'stock' : 'option';
   const symbol = stock ? stock.symbol : option?.underlyingSymbol || '';
@@ -50,6 +55,15 @@ const TradePanel: React.FC<TradePanelProps> = ({ stock, option, onPlaceOrder }) 
   };
   
   const handleOrder = async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please login to place orders",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const parsedQuantity = parseInt(quantity);
     
     if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
@@ -72,14 +86,27 @@ const TradePanel: React.FC<TradePanelProps> = ({ stock, option, onPlaceOrder }) 
         };
       }
       
-      await onPlaceOrder(
-        symbol,
-        parsedQuantity,
-        currentPrice,
-        orderType,
-        instrumentType,
-        optionDetails
-      );
+      if (onPlaceOrder) {
+        // Use prop callback if provided
+        await onPlaceOrder(
+          symbol,
+          parsedQuantity,
+          currentPrice,
+          orderType,
+          instrumentType,
+          optionDetails
+        );
+      } else {
+        // Use Supabase backend
+        await placeOrderMutation.mutateAsync({
+          symbol,
+          quantity: parsedQuantity,
+          price: currentPrice,
+          type: orderType,
+          instrumentType,
+          optionDetails
+        });
+      }
       
       toast({
         title: "Order Placed",
@@ -88,10 +115,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ stock, option, onPlaceOrder }) 
       
       // Reset quantity after order
       setQuantity('1');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Order Failed",
-        description: "There was an error placing your order",
+        description: error?.message || "There was an error placing your order",
         variant: "destructive"
       });
     }
@@ -200,9 +227,23 @@ const TradePanel: React.FC<TradePanelProps> = ({ stock, option, onPlaceOrder }) 
               onClick={handleOrder} 
               className="w-full" 
               variant={orderType === 'buy' ? 'default' : 'destructive'}
+              disabled={placeOrderMutation.isPending || !isAuthenticated}
             >
-              {orderType === 'buy' ? 'Buy' : 'Sell'} {instrumentType.charAt(0).toUpperCase() + instrumentType.slice(1)}
+              {placeOrderMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                `${orderType === 'buy' ? 'Buy' : 'Sell'} ${instrumentType.charAt(0).toUpperCase() + instrumentType.slice(1)}`
+              )}
             </Button>
+            
+            {!isAuthenticated && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Please login to place orders
+              </p>
+            )}
           </div>
         </div>
       </CardContent>

@@ -1,79 +1,125 @@
-import { useQuery } from '@tanstack/react-query';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PortfolioHolding, Order, TradeHistory, PortfolioSummary } from '../types/market';
-import { mockPortfolioHoldings, mockOrders, mockTradeHistory, mockPortfolioSummary } from '../data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import { getStockBySymbol, getOptionChain } from './marketService';
 
-// Simulated portfolio data (in a real app would be persisted to a database)
-let portfolioHoldings: PortfolioHolding[] = [...mockPortfolioHoldings];
-let orders: Order[] = [...mockOrders];
-let tradeHistory: TradeHistory[] = [...mockTradeHistory];
-let portfolioSummary: PortfolioSummary = { ...mockPortfolioSummary };
-
-// Get portfolio holdings
+// Get portfolio holdings from Supabase
 export const getPortfolioHoldings = async (): Promise<PortfolioHolding[]> => {
-  // Update current prices and PnL based on latest market data
-  const updatedHoldings = await Promise.all(portfolioHoldings.map(async (holding) => {
+  const { data: session } = await supabase.auth.getSession();
+  
+  if (!session.session?.user) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { data, error } = await supabase
+    .from('portfolio_holdings')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  
+  // Convert database records to PortfolioHolding objects
+  const holdings: PortfolioHolding[] = await Promise.all((data || []).map(async (holding) => {
     try {
-      if (holding.instrumentType === 'stock') {
+      // Determine current price based on instrument type
+      let currentPrice = holding.avg_price;
+      
+      if (holding.instrument_type === 'stock') {
         const stock = await getStockBySymbol(holding.symbol);
         if (stock) {
-          const currentPrice = stock.price;
-          const pnl = (currentPrice - holding.avgPrice) * holding.quantity;
-          const pnlPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
-          
-          return {
-            ...holding,
-            currentPrice,
-            pnl,
-            pnlPercent
-          };
+          currentPrice = stock.price;
         }
-      } else if (holding.instrumentType === 'option' && holding.optionDetails) {
+      } else if (holding.instrument_type === 'option' && holding.option_strike_price) {
         const optionChain = await getOptionChain(holding.symbol);
         if (optionChain) {
-          const { strikePrice, type } = holding.optionDetails;
-          const options = type === 'call' ? optionChain.calls : optionChain.puts;
-          const option = options.find(opt => opt.strikePrice === strikePrice);
+          const options = holding.option_type === 'call' ? optionChain.calls : optionChain.puts;
+          const option = options.find(opt => 
+            opt.strikePrice === holding.option_strike_price && 
+            opt.type === holding.option_type
+          );
           
           if (option) {
-            const currentPrice = option.lastPrice;
-            const pnl = (currentPrice - holding.avgPrice) * holding.quantity;
-            const pnlPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
-            
-            return {
-              ...holding,
-              currentPrice,
-              pnl,
-              pnlPercent
-            };
+            currentPrice = option.lastPrice;
           }
         }
       }
       
-      return holding;
+      // Calculate P&L
+      const pnl = (currentPrice - holding.avg_price) * holding.quantity;
+      const pnlPercent = ((currentPrice - holding.avg_price) / holding.avg_price) * 100;
+      
+      return {
+        symbol: holding.symbol,
+        quantity: holding.quantity,
+        avgPrice: holding.avg_price,
+        currentPrice,
+        pnl,
+        pnlPercent,
+        instrumentType: holding.instrument_type as 'stock' | 'option',
+        optionDetails: holding.instrument_type === 'option' ? {
+          strikePrice: holding.option_strike_price,
+          expiryDate: holding.option_expiry_date,
+          type: holding.option_type as 'call' | 'put'
+        } : undefined
+      };
     } catch (error) {
       console.error("Error updating portfolio holding:", error);
-      return holding;
+      return {
+        symbol: holding.symbol,
+        quantity: holding.quantity,
+        avgPrice: holding.avg_price,
+        currentPrice: holding.avg_price,
+        pnl: 0,
+        pnlPercent: 0,
+        instrumentType: holding.instrument_type as 'stock' | 'option',
+        optionDetails: holding.instrument_type === 'option' ? {
+          strikePrice: holding.option_strike_price,
+          expiryDate: holding.option_expiry_date,
+          type: holding.option_type as 'call' | 'put'
+        } : undefined
+      };
     }
   }));
   
-  portfolioHoldings = updatedHoldings;
-  return updatedHoldings;
+  return holdings;
 };
 
 // Get order history
 export const getOrders = async (): Promise<Order[]> => {
-  return orders;
-};
-
-// Get trade history
-export const getTradeHistory = async (): Promise<TradeHistory[]> => {
-  return tradeHistory;
+  const { data: session } = await supabase.auth.getSession();
+  
+  if (!session.session?.user) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  
+  return (data || []).map(order => ({
+    id: order.id,
+    symbol: order.symbol,
+    quantity: order.quantity,
+    price: order.price,
+    type: order.type as 'buy' | 'sell',
+    status: order.status as 'open' | 'executed' | 'canceled',
+    timestamp: new Date(order.created_at).getTime(),
+    instrumentType: order.instrument_type as 'stock' | 'option',
+    optionDetails: order.instrument_type === 'option' ? {
+      strikePrice: order.option_strike_price,
+      expiryDate: order.option_expiry_date,
+      type: order.option_type as 'call' | 'put'
+    } : undefined
+  }));
 };
 
 // Get portfolio summary
 export const getPortfolioSummary = async (): Promise<PortfolioSummary> => {
-  // Recalculate based on current holdings
   const holdings = await getPortfolioHoldings();
   
   const totalValue = holdings.reduce((sum, holding) => 
@@ -92,24 +138,25 @@ export const getPortfolioSummary = async (): Promise<PortfolioSummary> => {
   
   const totalPnLPercent = totalInvestment > 0 ? (totalPnL / totalInvestment) * 100 : 0;
   
-  portfolioSummary = {
+  return {
     totalValue,
     totalInvestment,
     todayPnL,
     totalPnL,
     totalPnLPercent
   };
-  
-  return portfolioSummary;
 };
 
 // Custom hook to get portfolio summary with React Query
 export const usePortfolioSummary = () => {
+  const { isAuthenticated } = useAuth();
+  
   return useQuery({
     queryKey: ['portfolioSummary'],
     queryFn: getPortfolioSummary,
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 20000, // Consider data stale after 20 seconds
+    enabled: isAuthenticated
   });
 };
 
@@ -126,130 +173,212 @@ export const placeOrder = async (
     type: 'call' | 'put';
   }
 ): Promise<Order> => {
-  const id = `ORD${Math.floor(Math.random() * 1000000)}`;
-  const timestamp = Date.now();
+  const { data: session } = await supabase.auth.getSession();
   
-  const newOrder: Order = {
-    id,
+  if (!session.session?.user) {
+    throw new Error('User not authenticated');
+  }
+  
+  const userId = session.session.user.id;
+  
+  // Insert order record
+  const { data: orderData, error: orderError } = await supabase
+    .from('orders')
+    .insert({
+      user_id: userId,
+      symbol,
+      quantity,
+      price,
+      type,
+      status: 'executed', // In a real app, this would start as 'open'
+      instrument_type: instrumentType,
+      option_strike_price: optionDetails?.strikePrice,
+      option_expiry_date: optionDetails?.expiryDate,
+      option_type: optionDetails?.type
+    })
+    .select()
+    .single();
+  
+  if (orderError) throw orderError;
+  
+  // Update portfolio holdings based on the order
+  await updatePortfolioAfterOrder(userId, {
     symbol,
     quantity,
     price,
     type,
-    status: 'executed', // In a real app, this would start as 'open'
-    timestamp,
     instrumentType,
     optionDetails
-  };
+  });
   
-  orders = [newOrder, ...orders];
-  
-  // Add to trade history
-  const tradeId = `TRD${Math.floor(Math.random() * 1000000)}`;
-  const newTrade: TradeHistory = {
-    id: tradeId,
+  return {
+    id: orderData.id,
     symbol,
     quantity,
     price,
     type,
-    timestamp,
+    status: 'executed',
+    timestamp: new Date(orderData.created_at).getTime(),
     instrumentType,
     optionDetails
   };
-  
-  tradeHistory = [newTrade, ...tradeHistory];
-  
-  // Update portfolio holdings
-  await updatePortfolioAfterTrade(newOrder);
-  
-  return newOrder;
 };
 
-// Update portfolio holdings after a trade
-const updatePortfolioAfterTrade = async (order: Order): Promise<void> => {
+// Update portfolio holdings after an order
+const updatePortfolioAfterOrder = async (
+  userId: string,
+  order: {
+    symbol: string;
+    quantity: number;
+    price: number;
+    type: 'buy' | 'sell';
+    instrumentType: 'stock' | 'option';
+    optionDetails?: {
+      strikePrice: number;
+      expiryDate: string;
+      type: 'call' | 'put';
+    };
+  }
+) => {
   const { symbol, quantity, price, type, instrumentType, optionDetails } = order;
   
   // Find if we already have this instrument in our portfolio
-  const existingHoldingIndex = portfolioHoldings.findIndex(h => 
-    h.symbol === symbol && 
-    h.instrumentType === instrumentType &&
-    // For options, also match strike price and type
-    (instrumentType === 'stock' || 
-      (h.optionDetails?.strikePrice === optionDetails?.strikePrice &&
-       h.optionDetails?.type === optionDetails?.type))
-  );
+  const { data: existingHolding, error: holdingError } = await supabase
+    .from('portfolio_holdings')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('symbol', symbol)
+    .eq('instrument_type', instrumentType)
+    .eq('option_strike_price', optionDetails?.strikePrice || null)
+    .eq('option_expiry_date', optionDetails?.expiryDate || null)
+    .eq('option_type', optionDetails?.type || null)
+    .maybeSingle();
+  
+  if (holdingError) throw holdingError;
   
   if (type === 'buy') {
-    if (existingHoldingIndex >= 0) {
+    if (existingHolding) {
       // Update existing holding
-      const existingHolding = portfolioHoldings[existingHoldingIndex];
       const newQuantity = existingHolding.quantity + quantity;
-      const newAvgPrice = ((existingHolding.avgPrice * existingHolding.quantity) + 
+      const newAvgPrice = ((existingHolding.avg_price * existingHolding.quantity) + 
                           (price * quantity)) / newQuantity;
       
-      portfolioHoldings[existingHoldingIndex] = {
-        ...existingHolding,
-        quantity: newQuantity,
-        avgPrice: newAvgPrice,
-        // Update current price and PnL
-        currentPrice: price,
-        pnl: (price - newAvgPrice) * newQuantity,
-        pnlPercent: ((price - newAvgPrice) / newAvgPrice) * 100
-      };
+      const { error: updateError } = await supabase
+        .from('portfolio_holdings')
+        .update({
+          quantity: newQuantity,
+          avg_price: newAvgPrice,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingHolding.id);
+      
+      if (updateError) throw updateError;
     } else {
       // Add new holding
-      portfolioHoldings.push({
-        symbol,
-        quantity,
-        avgPrice: price,
-        currentPrice: price,
-        pnl: 0,
-        pnlPercent: 0,
-        instrumentType,
-        optionDetails
-      });
+      const { error: insertError } = await supabase
+        .from('portfolio_holdings')
+        .insert({
+          user_id: userId,
+          symbol,
+          quantity,
+          avg_price: price,
+          instrument_type: instrumentType,
+          option_strike_price: optionDetails?.strikePrice,
+          option_expiry_date: optionDetails?.expiryDate,
+          option_type: optionDetails?.type
+        });
+      
+      if (insertError) throw insertError;
     }
   } else if (type === 'sell') {
-    if (existingHoldingIndex >= 0) {
-      const existingHolding = portfolioHoldings[existingHoldingIndex];
-      
+    if (existingHolding) {
       // Ensure we have enough quantity to sell
       if (existingHolding.quantity >= quantity) {
         const newQuantity = existingHolding.quantity - quantity;
         
         if (newQuantity > 0) {
           // Update the holding with new quantity
-          portfolioHoldings[existingHoldingIndex] = {
-            ...existingHolding,
-            quantity: newQuantity,
-            // Keep the same average price
-            // Update current price and PnL
-            currentPrice: price,
-            pnl: (price - existingHolding.avgPrice) * newQuantity,
-            pnlPercent: ((price - existingHolding.avgPrice) / existingHolding.avgPrice) * 100
-          };
+          const { error: updateError } = await supabase
+            .from('portfolio_holdings')
+            .update({
+              quantity: newQuantity,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingHolding.id);
+          
+          if (updateError) throw updateError;
         } else {
           // Remove the holding if quantity is 0
-          portfolioHoldings = portfolioHoldings.filter((_, index) => index !== existingHoldingIndex);
-        }
-        
-        // Update the trade history with PnL for this sale
-        const saleTradeIndex = tradeHistory.findIndex(t => t.id === `TRD${order.id.substring(3)}`);
-        if (saleTradeIndex >= 0) {
-          tradeHistory[saleTradeIndex] = {
-            ...tradeHistory[saleTradeIndex],
-            pnl: (price - existingHolding.avgPrice) * quantity
-          };
+          const { error: deleteError } = await supabase
+            .from('portfolio_holdings')
+            .delete()
+            .eq('id', existingHolding.id);
+          
+          if (deleteError) throw deleteError;
         }
       } else {
-        console.error("Not enough quantity to sell");
-        // In a real app, this would throw an error or reject the order
+        throw new Error("Not enough quantity to sell");
       }
     } else {
-      console.error("Cannot sell - holding not found in portfolio");
-      // In a real app, this would throw an error or reject the order
+      throw new Error("Cannot sell - holding not found in portfolio");
     }
   }
+};
+
+// Custom hook for placing orders
+export const usePlaceOrder = () => {
+  const queryClient = useQueryClient();
   
-  // Update portfolio summary
-  await getPortfolioSummary();
+  return useMutation({
+    mutationFn: (orderData: {
+      symbol: string;
+      quantity: number;
+      price: number;
+      type: 'buy' | 'sell';
+      instrumentType: 'stock' | 'option';
+      optionDetails?: {
+        strikePrice: number;
+        expiryDate: string;
+        type: 'call' | 'put';
+      };
+    }) => placeOrder(
+      orderData.symbol,
+      orderData.quantity,
+      orderData.price,
+      orderData.type,
+      orderData.instrumentType,
+      orderData.optionDetails
+    ),
+    onSuccess: () => {
+      // Invalidate and refetch portfolio data
+      queryClient.invalidateQueries({ queryKey: ['portfolioHoldings'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolioSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    }
+  });
+};
+
+// Custom hook to get portfolio holdings with React Query
+export const usePortfolioHoldings = () => {
+  const { isAuthenticated } = useAuth();
+  
+  return useQuery({
+    queryKey: ['portfolioHoldings'],
+    queryFn: getPortfolioHoldings,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 20000, // Consider data stale after 20 seconds
+    enabled: isAuthenticated
+  });
+};
+
+// Custom hook to get orders with React Query
+export const useOrders = () => {
+  const { isAuthenticated } = useAuth();
+  
+  return useQuery({
+    queryKey: ['orders'],
+    queryFn: getOrders,
+    staleTime: 30000, // Consider data stale after 30 seconds
+    enabled: isAuthenticated
+  });
 };
