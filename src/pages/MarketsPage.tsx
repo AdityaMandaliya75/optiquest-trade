@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Stock, MarketIndex } from '@/types/market';
-import { getStocks, getIndices, startRealTimeUpdates } from '@/services/marketService';
+import { getStocks, getIndices } from '@/services/marketService'; 
+import { startRealTimeUpdates } from '@/services/realTimeMarketService';
 import Layout from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

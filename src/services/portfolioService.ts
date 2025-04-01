@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PortfolioHolding, Order, TradeHistory, PortfolioSummary } from '../types/market';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,10 +19,8 @@ export const getPortfolioHoldings = async (): Promise<PortfolioHolding[]> => {
   
   if (error) throw error;
   
-  // Convert database records to PortfolioHolding objects
   const holdings: PortfolioHolding[] = await Promise.all((data || []).map(async (holding) => {
     try {
-      // Determine current price based on instrument type
       let currentPrice = holding.avg_price;
       
       if (holding.instrument_type === 'stock') {
@@ -46,7 +43,6 @@ export const getPortfolioHoldings = async (): Promise<PortfolioHolding[]> => {
         }
       }
       
-      // Calculate P&L
       const pnl = (currentPrice - holding.avg_price) * holding.quantity;
       const pnlPercent = ((currentPrice - holding.avg_price) / holding.avg_price) * 100;
       
@@ -118,6 +114,23 @@ export const getOrders = async (): Promise<Order[]> => {
   }));
 };
 
+// Mock function for trade history 
+export const getTradeHistory = async (): Promise<TradeHistory[]> => {
+  const orders = await getOrders();
+  
+  return orders.map(order => ({
+    id: order.id,
+    symbol: order.symbol,
+    quantity: order.quantity,
+    price: order.price,
+    type: order.type,
+    timestamp: order.timestamp,
+    instrumentType: order.instrumentType,
+    pnl: Math.random() > 0.5 ? (Math.random() * 100 * (Math.random() > 0.5 ? 1 : -1)) : undefined,
+    optionDetails: order.optionDetails
+  }));
+};
+
 // Get portfolio summary
 export const getPortfolioSummary = async (): Promise<PortfolioSummary> => {
   const holdings = await getPortfolioHoldings();
@@ -131,8 +144,6 @@ export const getPortfolioSummary = async (): Promise<PortfolioSummary> => {
   const totalPnL = holdings.reduce((sum, holding) => sum + holding.pnl, 0);
   
   const todayPnL = holdings.reduce((sum, holding) => {
-    // In a real app, this would calculate just today's change
-    // For this demo we'll use a portion of the total P&L
     return sum + (holding.pnl * Math.random() * 0.3);
   }, 0);
   
@@ -181,7 +192,6 @@ export const placeOrder = async (
   
   const userId = session.session.user.id;
   
-  // Insert order record
   const { data: orderData, error: orderError } = await supabase
     .from('orders')
     .insert({
@@ -190,7 +200,7 @@ export const placeOrder = async (
       quantity,
       price,
       type,
-      status: 'executed', // In a real app, this would start as 'open'
+      status: 'executed',
       instrument_type: instrumentType,
       option_strike_price: optionDetails?.strikePrice,
       option_expiry_date: optionDetails?.expiryDate,
@@ -201,7 +211,6 @@ export const placeOrder = async (
   
   if (orderError) throw orderError;
   
-  // Update portfolio holdings based on the order
   await updatePortfolioAfterOrder(userId, {
     symbol,
     quantity,
@@ -242,7 +251,6 @@ const updatePortfolioAfterOrder = async (
 ) => {
   const { symbol, quantity, price, type, instrumentType, optionDetails } = order;
   
-  // Find if we already have this instrument in our portfolio
   const { data: existingHolding, error: holdingError } = await supabase
     .from('portfolio_holdings')
     .select('*')
@@ -258,7 +266,6 @@ const updatePortfolioAfterOrder = async (
   
   if (type === 'buy') {
     if (existingHolding) {
-      // Update existing holding
       const newQuantity = existingHolding.quantity + quantity;
       const newAvgPrice = ((existingHolding.avg_price * existingHolding.quantity) + 
                           (price * quantity)) / newQuantity;
@@ -274,7 +281,6 @@ const updatePortfolioAfterOrder = async (
       
       if (updateError) throw updateError;
     } else {
-      // Add new holding
       const { error: insertError } = await supabase
         .from('portfolio_holdings')
         .insert({
@@ -292,12 +298,10 @@ const updatePortfolioAfterOrder = async (
     }
   } else if (type === 'sell') {
     if (existingHolding) {
-      // Ensure we have enough quantity to sell
       if (existingHolding.quantity >= quantity) {
         const newQuantity = existingHolding.quantity - quantity;
         
         if (newQuantity > 0) {
-          // Update the holding with new quantity
           const { error: updateError } = await supabase
             .from('portfolio_holdings')
             .update({
@@ -308,7 +312,6 @@ const updatePortfolioAfterOrder = async (
           
           if (updateError) throw updateError;
         } else {
-          // Remove the holding if quantity is 0
           const { error: deleteError } = await supabase
             .from('portfolio_holdings')
             .delete()
@@ -350,7 +353,6 @@ export const usePlaceOrder = () => {
       orderData.optionDetails
     ),
     onSuccess: () => {
-      // Invalidate and refetch portfolio data
       queryClient.invalidateQueries({ queryKey: ['portfolioHoldings'] });
       queryClient.invalidateQueries({ queryKey: ['portfolioSummary'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -365,8 +367,8 @@ export const usePortfolioHoldings = () => {
   return useQuery({
     queryKey: ['portfolioHoldings'],
     queryFn: getPortfolioHoldings,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 20000, // Consider data stale after 20 seconds
+    refetchInterval: 30000,
+    staleTime: 20000,
     enabled: isAuthenticated
   });
 };
@@ -378,7 +380,19 @@ export const useOrders = () => {
   return useQuery({
     queryKey: ['orders'],
     queryFn: getOrders,
-    staleTime: 30000, // Consider data stale after 30 seconds
+    staleTime: 30000,
+    enabled: isAuthenticated
+  });
+};
+
+// Custom hook to get trade history with React Query
+export const useTradeHistory = () => {
+  const { isAuthenticated } = useAuth();
+  
+  return useQuery({
+    queryKey: ['tradeHistory'],
+    queryFn: getTradeHistory,
+    staleTime: 30000,
     enabled: isAuthenticated
   });
 };
