@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -7,34 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, ExternalLink, Clock } from 'lucide-react';
 import { StockNews } from '@/types/market';
-import { getAllNews, getImportantNews } from '@/services/newsService';
 import { formatDistanceToNow } from 'date-fns';
 
-const NewsPanel: React.FC = () => {
-  const [allNews, setAllNews] = useState<StockNews[]>([]);
-  const [importantNews, setImportantNews] = useState<StockNews[]>([]);
+interface NewsPanelProps {
+  allNews: StockNews[];
+  importantNews: StockNews[];
+}
+
+const NewsPanel: React.FC<NewsPanelProps> = ({ allNews, importantNews }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    const fetchNews = async () => {
-      try {
-        const [allNewsData, importantNewsData] = await Promise.all([
-          getAllNews(),
-          getImportantNews()
-        ]);
-        
-        setAllNews(allNewsData);
-        setImportantNews(importantNewsData);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching news:', error);
-        setLoading(false);
-      }
-    };
-    
-    fetchNews();
-  }, []);
   
   const filteredNews = searchQuery
     ? allNews.filter(
@@ -82,27 +63,17 @@ const NewsPanel: React.FC = () => {
             </div>
           </div>
         </div>
-        <Button size="sm" variant="ghost" className="shrink-0">
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          className="shrink-0"
+          onClick={() => window.open(news.url, '_blank')}
+        >
           <ExternalLink className="h-4 w-4" />
         </Button>
       </div>
     </div>
   );
-  
-  if (loading) {
-    return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle>Market News</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-48">
-            <p className="text-muted-foreground">Loading news...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
   
   return (
     <Card className="h-full flex flex-col">
