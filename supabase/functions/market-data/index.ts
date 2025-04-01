@@ -1,10 +1,11 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.41.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -90,6 +91,8 @@ serve(async (req) => {
       await storeMarketIndices(supabaseAdmin, responseData);
     } else if (responseData && action === 'news') {
       await storeNewsData(supabaseAdmin, responseData, symbol);
+    } else if (responseData && action === 'chart' && symbol) {
+      await storeChartData(supabaseAdmin, responseData, symbol);
     }
 
     return new Response(
@@ -108,6 +111,8 @@ serve(async (req) => {
 // Yahoo Finance API helper functions
 async function fetchQuote(symbol: string) {
   const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`;
+  console.log(`Fetching quote data from: ${yahooUrl}`);
+  
   const response = await fetch(yahooUrl);
   
   if (!response.ok) {
@@ -123,6 +128,8 @@ async function fetchMarketSummary() {
   const dowUrl = `https://query1.finance.yahoo.com/v6/finance/quoteSummary/%5EDJI?modules=summaryDetail,price`;
   const nasdaqUrl = `https://query1.finance.yahoo.com/v6/finance/quoteSummary/%5EIXIC?modules=summaryDetail,price`;
   
+  console.log(`Fetching market summary data`);
+  
   const responses = await Promise.all([
     fetch(yahooUrl),
     fetch(dowUrl),
@@ -135,6 +142,8 @@ async function fetchMarketSummary() {
 
 async function fetchTrendingStocks() {
   const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/trending/US`;
+  console.log(`Fetching trending stocks from: ${yahooUrl}`);
+  
   const response = await fetch(yahooUrl);
   
   if (!response.ok) {
@@ -144,12 +153,16 @@ async function fetchTrendingStocks() {
   const data = await response.json();
   
   // Get quotes for the trending symbols
-  const symbols = data.finance.result[0].quotes
-    .slice(0, 10)
-    .map((quote: any) => quote.symbol)
-    .join(',');
+  if (data?.finance?.result?.[0]?.quotes) {
+    const symbols = data.finance.result[0].quotes
+      .slice(0, 10)
+      .map((quote: any) => quote.symbol)
+      .join(',');
+    
+    return await fetchQuote(symbols);
+  }
   
-  return await fetchQuote(symbols);
+  return [];
 }
 
 async function fetchMarketNews(symbol?: string) {
@@ -157,6 +170,8 @@ async function fetchMarketNews(symbol?: string) {
   if (symbol) {
     yahooUrl = `https://query1.finance.yahoo.com/v2/finance/news?symbol=${symbol}`;
   }
+  
+  console.log(`Fetching market news from: ${yahooUrl}`);
   
   const response = await fetch(yahooUrl);
   
@@ -170,6 +185,8 @@ async function fetchMarketNews(symbol?: string) {
 
 async function fetchChartData(symbol: string, interval: string, range: string) {
   const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
+  console.log(`Fetching chart data from: ${yahooUrl}`);
+  
   const response = await fetch(yahooUrl);
   
   if (!response.ok) {
@@ -182,6 +199,8 @@ async function fetchChartData(symbol: string, interval: string, range: string) {
 
 async function fetchOptionChain(symbol: string) {
   const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/options/${symbol}`;
+  console.log(`Fetching option chain from: ${yahooUrl}`);
+  
   const response = await fetch(yahooUrl);
   
   if (!response.ok) {
@@ -213,38 +232,51 @@ function processQuoteData(data: any) {
 }
 
 function processMarketSummaryData(data: any) {
-  return [
-    {
+  const indices = [];
+  
+  // S&P 500
+  if (data[0]?.quoteSummary?.result?.[0]) {
+    indices.push({
       symbol: '^GSPC',
       name: 'S&P 500',
       value: data[0].quoteSummary.result[0].price.regularMarketPrice.raw,
       change: data[0].quoteSummary.result[0].price.regularMarketChange.raw,
       changePercent: data[0].quoteSummary.result[0].price.regularMarketChangePercent.raw,
-      open: data[0].quoteSummary.result[0].summaryDetail.open.raw,
-      high: data[0].quoteSummary.result[0].summaryDetail.dayHigh.raw,
-      low: data[0].quoteSummary.result[0].summaryDetail.dayLow.raw
-    },
-    {
+      open: data[0].quoteSummary.result[0].summaryDetail.open?.raw || 0,
+      high: data[0].quoteSummary.result[0].summaryDetail.dayHigh?.raw || 0,
+      low: data[0].quoteSummary.result[0].summaryDetail.dayLow?.raw || 0
+    });
+  }
+  
+  // Dow Jones
+  if (data[1]?.quoteSummary?.result?.[0]) {
+    indices.push({
       symbol: '^DJI',
       name: 'Dow Jones',
       value: data[1].quoteSummary.result[0].price.regularMarketPrice.raw,
       change: data[1].quoteSummary.result[0].price.regularMarketChange.raw,
       changePercent: data[1].quoteSummary.result[0].price.regularMarketChangePercent.raw,
-      open: data[1].quoteSummary.result[0].summaryDetail.open.raw,
-      high: data[1].quoteSummary.result[0].summaryDetail.dayHigh.raw,
-      low: data[1].quoteSummary.result[0].summaryDetail.dayLow.raw
-    },
-    {
+      open: data[1].quoteSummary.result[0].summaryDetail.open?.raw || 0,
+      high: data[1].quoteSummary.result[0].summaryDetail.dayHigh?.raw || 0,
+      low: data[1].quoteSummary.result[0].summaryDetail.dayLow?.raw || 0
+    });
+  }
+  
+  // NASDAQ
+  if (data[2]?.quoteSummary?.result?.[0]) {
+    indices.push({
       symbol: '^IXIC',
       name: 'NASDAQ',
       value: data[2].quoteSummary.result[0].price.regularMarketPrice.raw,
       change: data[2].quoteSummary.result[0].price.regularMarketChange.raw,
       changePercent: data[2].quoteSummary.result[0].price.regularMarketChangePercent.raw,
-      open: data[2].quoteSummary.result[0].summaryDetail.open.raw,
-      high: data[2].quoteSummary.result[0].summaryDetail.dayHigh.raw,
-      low: data[2].quoteSummary.result[0].summaryDetail.dayLow.raw
-    }
-  ];
+      open: data[2].quoteSummary.result[0].summaryDetail.open?.raw || 0,
+      high: data[2].quoteSummary.result[0].summaryDetail.dayHigh?.raw || 0,
+      low: data[2].quoteSummary.result[0].summaryDetail.dayLow?.raw || 0
+    });
+  }
+  
+  return indices;
 }
 
 function processNewsData(data: any) {
@@ -287,14 +319,16 @@ function processChartData(data: any) {
   const chartData = [];
   
   for (let i = 0; i < timestamps.length; i++) {
-    chartData.push({
-      timestamp: timestamps[i] * 1000, // Convert to milliseconds
-      open: quote.open[i],
-      high: quote.high[i],
-      low: quote.low[i],
-      close: quote.close[i],
-      volume: quote.volume[i]
-    });
+    if (quote.open[i] !== null && quote.close[i] !== null) {
+      chartData.push({
+        timestamp: timestamps[i] * 1000, // Convert to milliseconds
+        open: quote.open[i],
+        high: quote.high[i],
+        low: quote.low[i],
+        close: quote.close[i],
+        volume: quote.volume[i]
+      });
+    }
   }
   
   return chartData;
@@ -315,11 +349,11 @@ function processOptionChainData(data: any) {
     expiryDate: new Date(call.expiration * 1000).toISOString().split('T')[0],
     type: 'call',
     lastPrice: call.lastPrice,
-    change: call.change,
-    changePercent: (call.change / (call.lastPrice - call.change)) * 100,
+    change: call.change || 0,
+    changePercent: call.change && call.lastPrice ? (call.change / (call.lastPrice - call.change)) * 100 : 0,
     volume: call.volume || 0,
     openInterest: call.openInterest || 0,
-    impliedVolatility: call.impliedVolatility
+    impliedVolatility: call.impliedVolatility || 0
   }));
   
   const puts = (options.puts || []).map((put: any) => ({
@@ -327,149 +361,245 @@ function processOptionChainData(data: any) {
     expiryDate: new Date(put.expiration * 1000).toISOString().split('T')[0],
     type: 'put',
     lastPrice: put.lastPrice,
-    change: put.change,
-    changePercent: (put.change / (put.lastPrice - put.change)) * 100,
+    change: put.change || 0,
+    changePercent: put.change && put.lastPrice ? (put.change / (put.lastPrice - put.change)) * 100 : 0,
     volume: put.volume || 0,
     openInterest: put.openInterest || 0,
-    impliedVolatility: put.impliedVolatility
+    impliedVolatility: put.impliedVolatility || 0
   }));
   
   return {
     underlyingSymbol,
-    expiryDate: new Date(options.expirationDate * 1000).toISOString().split('T')[0],
+    expiryDate: options.expirationDate ? new Date(options.expirationDate * 1000).toISOString().split('T')[0] : '',
     calls,
     puts
   };
 }
 
 // Supabase storage functions
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.41.0';
-
 async function storeStockData(supabase: any, stocks: any[], symbol?: string) {
-  for (const stock of stocks) {
-    // Check if stock exists
-    const { data: existingStock } = await supabase
-      .from('stocks')
-      .select('id')
-      .eq('symbol', stock.symbol)
-      .single();
+  try {
+    console.log(`Storing ${stocks.length} stocks in database`);
     
-    if (existingStock) {
-      // Update existing stock
-      await supabase
+    for (const stock of stocks) {
+      // Check if stock exists
+      const { data: existingStock } = await supabase
         .from('stocks')
-        .update({
-          price: stock.price,
-          change: stock.change,
-          change_percent: stock.changePercent,
-          high: stock.high,
-          low: stock.low,
-          open: stock.open,
-          close: stock.close,
-          volume: stock.volume,
-          market_cap: stock.marketCap,
-          updated_at: new Date().toISOString()
-        })
-        .eq('symbol', stock.symbol);
-    } else {
-      // Insert new stock
-      await supabase
-        .from('stocks')
-        .insert({
-          symbol: stock.symbol,
-          name: stock.name,
-          price: stock.price,
-          change: stock.change,
-          change_percent: stock.changePercent,
-          high: stock.high,
-          low: stock.low,
-          open: stock.open,
-          close: stock.close,
-          volume: stock.volume,
-          market_cap: stock.marketCap,
-          sector: stock.sector
-        });
+        .select('id')
+        .eq('symbol', stock.symbol)
+        .single();
+      
+      if (existingStock) {
+        // Update existing stock
+        const { error } = await supabase
+          .from('stocks')
+          .update({
+            price: stock.price,
+            change: stock.change,
+            change_percent: stock.changePercent,
+            high: stock.high,
+            low: stock.low,
+            open: stock.open,
+            close: stock.close,
+            volume: stock.volume,
+            market_cap: stock.marketCap,
+            updated_at: new Date().toISOString()
+          })
+          .eq('symbol', stock.symbol);
+        
+        if (error) {
+          console.error(`Error updating stock ${stock.symbol}:`, error);
+        }
+      } else {
+        // Insert new stock
+        const { error } = await supabase
+          .from('stocks')
+          .insert({
+            symbol: stock.symbol,
+            name: stock.name,
+            price: stock.price,
+            change: stock.change,
+            change_percent: stock.changePercent,
+            high: stock.high,
+            low: stock.low,
+            open: stock.open,
+            close: stock.close,
+            volume: stock.volume,
+            market_cap: stock.marketCap,
+            sector: stock.sector
+          });
+        
+        if (error) {
+          console.error(`Error inserting stock ${stock.symbol}:`, error);
+        }
+      }
     }
+  } catch (error) {
+    console.error("Error in storeStockData:", error);
   }
 }
 
 async function storeMarketIndices(supabase: any, indices: any[]) {
-  for (const index of indices) {
-    // Check if index exists
-    const { data: existingIndex } = await supabase
-      .from('market_indices')
-      .select('id')
-      .eq('symbol', index.symbol)
-      .single();
+  try {
+    console.log(`Storing ${indices.length} indices in database`);
     
-    if (existingIndex) {
-      // Update existing index
-      await supabase
+    for (const index of indices) {
+      // Check if index exists
+      const { data: existingIndex } = await supabase
         .from('market_indices')
-        .update({
-          value: index.value,
-          change: index.change,
-          change_percent: index.changePercent,
-          high: index.high,
-          low: index.low,
-          open: index.open,
-          updated_at: new Date().toISOString()
-        })
-        .eq('symbol', index.symbol);
-    } else {
-      // Insert new index
-      await supabase
-        .from('market_indices')
-        .insert({
-          symbol: index.symbol,
-          name: index.name,
-          value: index.value,
-          change: index.change,
-          change_percent: index.changePercent,
-          high: index.high,
-          low: index.low,
-          open: index.open
-        });
+        .select('id')
+        .eq('symbol', index.symbol)
+        .single();
+      
+      if (existingIndex) {
+        // Update existing index
+        const { error } = await supabase
+          .from('market_indices')
+          .update({
+            value: index.value,
+            change: index.change,
+            change_percent: index.changePercent,
+            high: index.high,
+            low: index.low,
+            open: index.open,
+            updated_at: new Date().toISOString()
+          })
+          .eq('symbol', index.symbol);
+        
+        if (error) {
+          console.error(`Error updating index ${index.symbol}:`, error);
+        }
+      } else {
+        // Insert new index
+        const { error } = await supabase
+          .from('market_indices')
+          .insert({
+            symbol: index.symbol,
+            name: index.name,
+            value: index.value,
+            change: index.change,
+            change_percent: index.changePercent,
+            high: index.high,
+            low: index.low,
+            open: index.open
+          });
+        
+        if (error) {
+          console.error(`Error inserting index ${index.symbol}:`, error);
+        }
+      }
     }
+  } catch (error) {
+    console.error("Error in storeMarketIndices:", error);
   }
 }
 
 async function storeNewsData(supabase: any, newsItems: any[], symbol?: string) {
-  for (const item of newsItems) {
-    // Check if news exists
-    const { data: existingNews } = await supabase
-      .from('news')
-      .select('id')
-      .eq('headline', item.headline)
-      .single();
+  try {
+    console.log(`Storing ${newsItems.length} news items in database`);
     
-    if (!existingNews) {
-      // Insert new news
-      const { data: news } = await supabase
+    for (const item of newsItems) {
+      // Check if news exists
+      const { data: existingNews } = await supabase
         .from('news')
-        .insert({
-          headline: item.headline,
-          summary: item.summary,
-          url: item.url,
-          source: item.source,
-          published_at: item.publishedAt,
-          sentiment: item.sentiment,
-          is_important: item.isImportant
-        })
         .select('id')
+        .eq('headline', item.headline)
         .single();
       
-      // Insert news-stock relations
-      if (news && item.relatedSymbols.length > 0) {
-        const newsStockRelations = item.relatedSymbols.map((symbol: string) => ({
-          news_id: news.id,
-          symbol
-        }));
+      if (!existingNews) {
+        // Insert new news
+        const { data: news, error } = await supabase
+          .from('news')
+          .insert({
+            headline: item.headline,
+            summary: item.summary,
+            url: item.url,
+            source: item.source,
+            published_at: item.publishedAt,
+            sentiment: item.sentiment,
+            is_important: item.isImportant
+          })
+          .select('id')
+          .single();
         
-        await supabase
-          .from('news_stocks')
-          .insert(newsStockRelations);
+        if (error) {
+          console.error(`Error inserting news item "${item.headline}":`, error);
+          continue;
+        }
+        
+        // Insert news-stock relations
+        if (news && item.relatedSymbols.length > 0) {
+          const newsStockRelations = item.relatedSymbols.map((symbol: string) => ({
+            news_id: news.id,
+            symbol
+          }));
+          
+          const { error: relError } = await supabase
+            .from('news_stocks')
+            .insert(newsStockRelations);
+          
+          if (relError) {
+            console.error(`Error inserting news-stock relations for news ${news.id}:`, relError);
+          }
+        }
       }
     }
+  } catch (error) {
+    console.error("Error in storeNewsData:", error);
+  }
+}
+
+async function storeChartData(supabase: any, chartData: any[], symbol: string) {
+  try {
+    console.log(`Storing ${chartData.length} chart data points for ${symbol}`);
+    
+    for (const dataPoint of chartData) {
+      const timestamp = new Date(dataPoint.timestamp).toISOString();
+      
+      // Check if data point exists
+      const { data: existingPoint } = await supabase
+        .from('chart_data')
+        .select('id')
+        .eq('symbol', symbol)
+        .eq('timestamp', timestamp)
+        .single();
+      
+      if (existingPoint) {
+        // Update existing data point
+        const { error } = await supabase
+          .from('chart_data')
+          .update({
+            open: dataPoint.open,
+            high: dataPoint.high,
+            low: dataPoint.low,
+            close: dataPoint.close,
+            volume: dataPoint.volume
+          })
+          .eq('id', existingPoint.id);
+        
+        if (error) {
+          console.error(`Error updating chart data point for ${symbol} at ${timestamp}:`, error);
+        }
+      } else {
+        // Insert new data point
+        const { error } = await supabase
+          .from('chart_data')
+          .insert({
+            symbol,
+            timestamp,
+            open: dataPoint.open,
+            high: dataPoint.high,
+            low: dataPoint.low,
+            close: dataPoint.close,
+            volume: dataPoint.volume
+          });
+        
+        if (error) {
+          console.error(`Error inserting chart data point for ${symbol} at ${timestamp}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in storeChartData:", error);
   }
 }

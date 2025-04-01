@@ -11,7 +11,7 @@ interface AuthContextType {
   session: Session | null;
   login: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   loading: boolean;
 }
 
@@ -26,14 +26,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener FIRST to prevent missing auth events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsAuthenticated(!!session);
+      async (event, currentSession) => {
+        console.log('Auth state change:', event, currentSession?.user?.email);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        setIsAuthenticated(!!currentSession);
+        setLoading(false);
 
         if (event === 'SIGNED_IN') {
+          // Initialize user profile if not exists
+          if (currentSession?.user) {
+            // Use setTimeout to avoid deadlocks
+            setTimeout(async () => {
+              const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentSession.user.id)
+                .single();
+                
+              if (!data) {
+                // Profile doesn't exist yet, create it
+                const { error } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: currentSession.user.id,
+                    first_name: currentSession.user.user_metadata.first_name,
+                    last_name: currentSession.user.user_metadata.last_name,
+                  });
+                  
+                if (error) console.error('Error creating profile:', error);
+              }
+            }, 0);
+          }
+          
           toast({
             title: "Login successful",
             description: "Welcome to Optiquest Trade",
@@ -48,10 +75,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsAuthenticated(!!session);
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      setUser(initialSession?.user ?? null);
+      setIsAuthenticated(!!initialSession);
       setLoading(false);
     });
 
@@ -61,12 +88,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<void> => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Login error:", error);
+        throw error;
+      }
+      
+      if (!data.user) {
+        throw new Error("No user returned from login");
+      }
+      
       navigate('/dashboard');
     } catch (error: any) {
       toast({
@@ -83,7 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string): Promise<void> => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -94,7 +129,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         },
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Signup error:", error);
+        throw error;
+      }
+      
+      if (!data.user) {
+        throw new Error("No user returned from signup");
+      }
       
       toast({
         title: "Registration successful",
@@ -114,8 +156,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    try {
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (error: any) {
+      toast({
+        title: "Logout failed",
+        description: error.message || "An error occurred during logout",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
