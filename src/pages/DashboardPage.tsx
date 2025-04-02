@@ -17,15 +17,19 @@ import MarketAnalytics from '@/components/markets/MarketAnalytics';
 import { usePortfolioSummary } from '@/services/portfolioService';
 import { getStocks, getIndices } from '@/services/marketService';
 import { startRealTimeUpdates } from '@/services/realTimeMarketService';
-import { Stock, MarketIndex } from '@/types/market';
+import { Stock, MarketIndex, StockNews } from '@/types/market';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { formatNumber, formatPercent } from '@/lib/utils';
+import { getAllNews, getImportantNews } from '@/services/newsService';
 
 const DashboardPage: React.FC = () => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [indices, setIndices] = useState<MarketIndex[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState('NIFTY');
+  const [allNews, setAllNews] = useState<StockNews[]>([]);
+  const [importantNews, setImportantNews] = useState<StockNews[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
   
   const { data: portfolioSummary, isLoading: portfolioLoading } = usePortfolioSummary();
   
@@ -55,6 +59,27 @@ const DashboardPage: React.FC = () => {
     };
     
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        setNewsLoading(true);
+        const [allNewsData, importantNewsData] = await Promise.all([
+          getAllNews(),
+          getImportantNews()
+        ]);
+        
+        setAllNews(allNewsData);
+        setImportantNews(importantNewsData);
+      } catch (error) {
+        console.error('Error fetching news in dashboard:', error);
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+    
+    fetchNews();
   }, []);
   
   const getSelectedIndexPrice = () => {
@@ -176,7 +201,15 @@ const DashboardPage: React.FC = () => {
         
         {/* News Section */}
         <div className="mt-4">
-          <NewsPanel />
+          {newsLoading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center h-48 mt-4">
+                <p className="text-muted-foreground">Loading news...</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <NewsPanel allNews={allNews} importantNews={importantNews} />
+          )}
         </div>
       </div>
     );

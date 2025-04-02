@@ -1,4 +1,3 @@
-
 import { Stock, MarketIndex, ChartData, OptionChain, StockNews } from '@/types/market';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -195,58 +194,28 @@ export const getOptionChain = async (symbol: string): Promise<OptionChain | null
 // Get news data, either for a specific symbol or general market news
 export const getMarketNews = async (symbol?: string): Promise<StockNews[]> => {
   try {
-    // First try to fetch from external API
-    try {
-      const { data: result, error } = await supabase.functions.invoke('market-data', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: { action: 'news', symbol }
-      });
-      
-      if (error) throw error;
-      if (result && Array.isArray(result) && result.length > 0) {
-        return result as StockNews[];
-      }
-    } catch (apiError) {
-      console.error(`Error fetching news from external API:`, apiError);
-      // Fall back to database if API call fails
-    }
+    // Here would be an API call to get real market news
+    // For now, we'll use mock data
+    const mockNews = getMockNews();
     
-    // Fallback to database
-    let query = supabase
-      .from('news')
-      .select(`
-        *,
-        news_stocks!inner(symbol)
-      `)
-      .order('published_at', { ascending: false });
-    
+    // If a symbol is provided, filter news for that symbol
     if (symbol) {
-      query = query.eq('news_stocks.symbol', symbol);
+      return mockNews.filter(news => 
+        news.relatedSymbols.includes(symbol)
+      );
     }
     
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error(`Error fetching news:`, error);
-      throw error;
-    }
-    
-    return data.map(item => ({
-      id: item.id,
-      headline: item.headline,
-      summary: item.summary,
-      url: item.url,
-      source: item.source,
-      publishedAt: new Date(item.published_at).getTime(),
-      relatedSymbols: item.news_stocks.map((ns: any) => ns.symbol),
-      sentiment: item.sentiment,
-      isImportant: item.is_important
-    }));
+    return mockNews;
   } catch (error) {
-    console.error(`Error fetching news:`, error);
-    // Return mock data as final fallback
-    return getMockNews(symbol);
+    console.error('Error fetching market news:', error);
+    // Return mock data as fallback
+    const mockNews = getMockNews();
+    if (symbol) {
+      return mockNews.filter(news => 
+        news.relatedSymbols.includes(symbol)
+      );
+    }
+    return mockNews;
   }
 };
 
@@ -516,66 +485,84 @@ function getMockOptionChain(symbol: string): OptionChain {
   };
 }
 
-function getMockNews(symbol?: string): StockNews[] {
-  const baseNews: StockNews[] = [
+function getMockNews(): StockNews[] {
+  return [
     {
       id: '1',
-      headline: 'Markets Rally as Fed Signals Potential Rate Cuts',
-      summary: 'Global markets surged after Federal Reserve officials hinted at potential interest rate cuts later this year, citing improving inflation data and economic stability.',
+      headline: 'Reliance Industries to Invest ₹75,000 Crore in Green Energy',
+      summary: 'Reliance Industries announced plans to invest ₹75,000 crore in green energy initiatives over the next three years, focusing on solar power, hydrogen, and fuel cells.',
       url: '#',
-      source: 'Financial Times',
+      source: 'Economic Times',
       publishedAt: Date.now() - 3600000,
-      relatedSymbols: ['^GSPC', '^DJI', '^IXIC'],
-      sentiment: 'positive',
+      relatedSymbols: ['RELIANCE'],
+      sentiment: 'positive' as const,
       isImportant: true
     },
     {
       id: '2',
-      headline: 'Apple Announces New iPhone Launch Event',
-      summary: 'Apple Inc. has sent out invitations for its annual product launch event, where it is expected to unveil the next generation of iPhones and other devices.',
+      headline: 'HDFC Bank Reports 20% Increase in Q1 Profit',
+      summary: 'HDFC Bank reported a 20% year-on-year increase in net profit for Q1 FY2024, beating market expectations. The bank also saw improvement in asset quality metrics.',
       url: '#',
-      source: 'TechCrunch',
+      source: 'LiveMint',
       publishedAt: Date.now() - 7200000,
-      relatedSymbols: ['AAPL'],
-      sentiment: 'positive',
-      isImportant: true
+      relatedSymbols: ['HDFCBANK'],
+      sentiment: 'positive' as const,
+      isImportant: false
     },
     {
       id: '3',
-      headline: 'Microsoft Cloud Revenue Beats Expectations',
-      summary: 'Microsoft reported stronger-than-expected cloud services growth in its latest earnings report, with Azure revenue up 27% year-over-year.',
+      headline: 'Infosys Wins $1.5 Billion Deal from Global Financial Services Firm',
+      summary: 'Infosys has secured a $1.5 billion deal from a leading global financial services company for digital transformation services spanning across 5 years.',
       url: '#',
-      source: 'Bloomberg',
+      source: 'Business Standard',
       publishedAt: Date.now() - 10800000,
-      relatedSymbols: ['MSFT'],
-      sentiment: 'positive'
+      relatedSymbols: ['INFY'],
+      sentiment: 'positive' as const,
+      isImportant: true
     },
     {
       id: '4',
-      headline: 'Amazon Expands One-Day Delivery to More Markets',
-      summary: 'Amazon announced an expansion of its one-day delivery service to additional cities, intensifying competition in the e-commerce space.',
+      headline: 'TCS Partners with Microsoft for Cloud Solutions',
+      summary: 'Tata Consultancy Services announced a strategic partnership with Microsoft to develop industry-specific cloud solutions targeting the banking and retail sectors.',
       url: '#',
-      source: 'Reuters',
+      source: 'Financial Express',
       publishedAt: Date.now() - 14400000,
-      relatedSymbols: ['AMZN'],
-      sentiment: 'positive'
+      relatedSymbols: ['TCS'],
+      sentiment: 'positive' as const,
+      isImportant: false
     },
     {
       id: '5',
-      headline: 'Google Faces New Antitrust Challenge in EU',
-      summary: 'European regulators have opened a new investigation into Google\'s advertising practices, potentially leading to additional fines for the tech giant.',
+      headline: 'Markets End Lower on Global Cues; IT, Bank Stocks Drag',
+      summary: 'Indian benchmark indices ended lower, dragged by IT and banking stocks, following weak global cues and concerns about rising inflation.',
       url: '#',
-      source: 'Wall Street Journal',
+      source: 'NDTV Profit',
       publishedAt: Date.now() - 18000000,
-      relatedSymbols: ['GOOGL'],
-      sentiment: 'negative',
+      relatedSymbols: ['NIFTY', 'BANKNIFTY'],
+      sentiment: 'negative' as const,
+      isImportant: false
+    },
+    {
+      id: '6',
+      headline: 'RBI Keeps Repo Rate Unchanged at 6.5% for Fourth Consecutive Time',
+      summary: 'The Reserve Bank of India maintained the repo rate at 6.5% for the fourth consecutive policy meeting, in line with market expectations, while maintaining its withdrawal of accommodation stance.',
+      url: '#',
+      source: 'Bloomberg Quint',
+      publishedAt: Date.now() - 86400000,
+      relatedSymbols: ['NIFTY', 'BANKNIFTY', 'HDFCBANK', 'ICICIBANK', 'SBIN'],
+      sentiment: 'neutral' as const,
+      isImportant: true
+    },
+    {
+      id: '7',
+      headline: 'Wipro Announces Share Buyback Worth ₹10,000 Crore',
+      summary: 'Wipro has announced a share buyback program worth ₹10,000 crore at ₹445 per share, representing a 16% premium to the current market price.',
+      url: '#',
+      source: 'Moneycontrol',
+      publishedAt: Date.now() - 86400000 * 2,
+      relatedSymbols: ['WIPRO'],
+      sentiment: 'positive' as const,
       isImportant: true
     }
   ];
-  
-  if (symbol) {
-    return baseNews.filter(news => news.relatedSymbols.includes(symbol));
-  }
-  
-  return baseNews;
 }

@@ -5,7 +5,8 @@ import { getMarketNews } from './marketService';
 // Get all news
 export const getAllNews = async (): Promise<StockNews[]> => {
   try {
-    return await getMarketNews();
+    const news = await getMarketNews();
+    return news || getMockNews();
   } catch (error) {
     console.error('Error fetching all news:', error);
     return getMockNews();
@@ -15,7 +16,8 @@ export const getAllNews = async (): Promise<StockNews[]> => {
 // Get news for a specific stock
 export const getNewsForStock = async (symbol: string): Promise<StockNews[]> => {
   try {
-    return await getMarketNews(symbol);
+    const news = await getMarketNews(symbol);
+    return news || getMockNewsForStock(symbol);
   } catch (error) {
     console.error(`Error fetching news for stock ${symbol}:`, error);
     return getMockNewsForStock(symbol);
@@ -26,7 +28,8 @@ export const getNewsForStock = async (symbol: string): Promise<StockNews[]> => {
 export const getImportantNews = async (): Promise<StockNews[]> => {
   try {
     const allNews = await getMarketNews();
-    return allNews.filter(news => news.isImportant);
+    const important = allNews?.filter(news => news.isImportant) || [];
+    return important.length > 0 ? important : getMockNews().filter(news => news.isImportant);
   } catch (error) {
     console.error('Error fetching important news:', error);
     return getMockNews().filter(news => news.isImportant);
@@ -37,6 +40,10 @@ export const getImportantNews = async (): Promise<StockNews[]> => {
 export const getLatestNews = async (limit: number = 5): Promise<StockNews[]> => {
   try {
     const allNews = await getMarketNews();
+    if (!allNews || allNews.length === 0) {
+      return getMockNews().slice(0, limit);
+    }
+    
     return [...allNews]
       .sort((a, b) => b.publishedAt - a.publishedAt)
       .slice(0, limit);
@@ -47,7 +54,7 @@ export const getLatestNews = async (limit: number = 5): Promise<StockNews[]> => 
 };
 
 // Mock news data as fallback
-function getMockNews(): StockNews[] {
+export function getMockNews(): StockNews[] {
   return [
     {
       id: '1',
@@ -68,7 +75,8 @@ function getMockNews(): StockNews[] {
       source: 'LiveMint',
       publishedAt: Date.now() - 7200000,
       relatedSymbols: ['HDFCBANK'],
-      sentiment: 'positive'
+      sentiment: 'positive',
+      isImportant: false
     },
     {
       id: '3',
@@ -89,7 +97,8 @@ function getMockNews(): StockNews[] {
       source: 'Financial Express',
       publishedAt: Date.now() - 14400000,
       relatedSymbols: ['TCS'],
-      sentiment: 'positive'
+      sentiment: 'positive',
+      isImportant: false
     },
     {
       id: '5',
@@ -99,7 +108,8 @@ function getMockNews(): StockNews[] {
       source: 'NDTV Profit',
       publishedAt: Date.now() - 18000000,
       relatedSymbols: ['NIFTY', 'BANKNIFTY'],
-      sentiment: 'negative'
+      sentiment: 'negative',
+      isImportant: false
     },
     {
       id: '6',
@@ -126,7 +136,7 @@ function getMockNews(): StockNews[] {
   ];
 }
 
-function getMockNewsForStock(symbol: string): StockNews[] {
+export function getMockNewsForStock(symbol: string): StockNews[] {
   // Filter mock news to return only those related to the specified symbol
   return getMockNews().filter(news => 
     news.relatedSymbols.includes(symbol)
